@@ -1,0 +1,401 @@
+openapi: 3.0.3
+info:
+  title: API Gateway - سیستم کترینگ سازمانی
+  description: |
+    دروازه API برای سیستم کترینگ سازمانی
+    
+    این سرویس مسئول مسیریابی درخواست‌ها به سرویس‌های داخلی، احراز هویت، و محدودسازی نرخ درخواست است.
+    
+    ## ویژگی‌ها
+    - احراز هویت JWT
+    - محدودسازی نرخ درخواست
+    - لاگ‌گیری درخواست‌ها
+    - مدیریت CORS
+    
+    ## احراز هویت
+    برای دسترسی به اکثر endpoint‌ها، باید توکن JWT را در هدر Authorization ارسال کنید:
+    ```
+    Authorization: Bearer <token>
+    ```
+  version: 1.0.0
+  contact:
+    name: تیم کترینگ
+    email: support@catering.example.com
+
+servers:
+  - url: http://localhost:3000
+    description: سرور توسعه
+  - url: https://api.catering.example.com
+    description: سرور تولید
+
+tags:
+  - name: سلامت
+    description: بررسی سلامت سرویس
+  - name: احراز هویت
+    description: ورود، ثبت‌نام و مدیریت توکن
+  - name: منو
+    description: مدیریت منو و غذاها
+
+paths:
+  /health:
+    get:
+      tags:
+        - سلامت
+      summary: بررسی سلامت سرویس
+      description: بررسی وضعیت سلامت API Gateway و وابستگی‌های آن
+      responses:
+        '200':
+          description: سرویس سالم است
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                success: true
+                data:
+                  service: api-gateway
+                  status: healthy
+                  version: "1.0.0"
+                  environment: development
+                  timestamp: "2024-01-15T10:30:00.000Z"
+                  uptime: 3600
+                  dependencies:
+                    redis: connected
+                message: "سرویس در حال اجرا است"
+
+  /api/v1/auth/register:
+    post:
+      tags:
+        - احراز هویت
+      summary: ثبت‌نام کاربر جدید
+      description: ایجاد حساب کاربری جدید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: "user@example.com"
+              password: "SecurePass123"
+              firstName: "علی"
+              lastName: "محمدی"
+              phone: "09121234567"
+      responses:
+        '201':
+          description: ثبت‌نام موفق
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  userId: "550e8400-e29b-41d4-a716-446655440000"
+                  email: "user@example.com"
+                message: "ثبت‌نام با موفقیت انجام شد"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: ایمیل تکراری
+          content:
+            application/json:
+              example:
+                success: false
+                error:
+                  code: "ERR_DUPLICATE_EMAIL"
+                  message: "این ایمیل قبلاً ثبت شده است"
+                  details: []
+                  timestamp: "2024-01-15T10:30:00.000Z"
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - احراز هویت
+      summary: ورود به سیستم
+      description: احراز هویت کاربر و دریافت توکن JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              identifier: "user@example.com"
+              password: "SecurePass123"
+      responses:
+        '200':
+          description: ورود موفق
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refreshToken: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  expiresIn: 86400
+                  user:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "user@example.com"
+                    firstName: "علی"
+                    lastName: "محمدی"
+                    role: "employee"
+                message: "ورود با موفقیت انجام شد"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /api/v1/auth/forgot-password:
+    post:
+      tags:
+        - احراز هویت
+      summary: فراموشی رمز عبور
+      description: ارسال لینک بازیابی رمز عبور به ایمیل
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+            example:
+              email: "user@example.com"
+      responses:
+        '200':
+          description: لینک بازیابی ارسال شد
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+                message: "لینک بازیابی رمز عبور به ایمیل شما ارسال شد"
+
+  /api/v1/menu/daily:
+    get:
+      tags:
+        - منو
+      summary: دریافت منوی روزانه
+      description: دریافت لیست غذاهای منوی روزانه (بدون نیاز به احراز هویت)
+      parameters:
+        - name: date
+          in: query
+          description: تاریخ منو (پیش‌فرض امروز)
+          schema:
+            type: string
+            format: date
+        - name: companyId
+          in: query
+          description: شناسه شرکت
+          schema:
+            type: string
+            format: uuid
+        - name: mealType
+          in: query
+          description: نوع وعده
+          schema:
+            type: string
+            enum: [breakfast, lunch, dinner, snack]
+      responses:
+        '200':
+          description: منوی روزانه
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  - id: "menu123"
+                    date: "2024-01-15"
+                    mealType: "lunch"
+                    items:
+                      - id: "item1"
+                        name: "چلو کباب کوبیده"
+                        price: 150000
+                        isAvailable: true
+                message: "منوی روزانه با موفقیت دریافت شد"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: توکن JWT را در هدر Authorization وارد کنید
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            service:
+              type: string
+            status:
+              type: string
+            version:
+              type: string
+            environment:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+            uptime:
+              type: number
+            dependencies:
+              type: object
+        message:
+          type: string
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+          description: آدرس ایمیل
+        password:
+          type: string
+          minLength: 8
+          description: رمز عبور (حداقل ۸ کاراکتر)
+        firstName:
+          type: string
+          description: نام
+        lastName:
+          type: string
+          description: نام خانوادگی
+        phone:
+          type: string
+          pattern: '^(\+98|0)?9\d{9}$'
+          description: شماره موبایل
+
+    LoginRequest:
+      type: object
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          type: string
+          description: ایمیل یا شماره موبایل
+        password:
+          type: string
+          description: رمز عبور
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+            timestamp:
+              type: string
+              format: date-time
+
+  responses:
+    ValidationError:
+      description: خطای اعتبارسنجی
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "ERR_VALIDATION"
+              message: "اطلاعات وارد شده نامعتبر است"
+              details:
+                - field: "email"
+                  message: "ایمیل نامعتبر است"
+              timestamp: "2024-01-15T10:30:00.000Z"
+
+    Unauthorized:
+      description: عدم احراز هویت
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "ERR_UNAUTHORIZED"
+              message: "برای دسترسی به این بخش باید وارد حساب کاربری خود شوید"
+              details: []
+              timestamp: "2024-01-15T10:30:00.000Z"
+
+    Forbidden:
+      description: عدم دسترسی
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "ERR_FORBIDDEN"
+              message: "شما اجازه دسترسی به این بخش را ندارید"
+              details: []
+              timestamp: "2024-01-15T10:30:00.000Z"
+
+    NotFound:
+      description: یافت نشد
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "ERR_NOT_FOUND"
+              message: "مورد درخواستی یافت نشد"
+              details: []
+              timestamp: "2024-01-15T10:30:00.000Z"
+
+    RateLimitExceeded:
+      description: محدودیت نرخ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "ERR_RATE_LIMIT"
+              message: "تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کنید"
+              details: []
+              timestamp: "2024-01-15T10:30:00.000Z"
+
+security:
+  - bearerAuth: []

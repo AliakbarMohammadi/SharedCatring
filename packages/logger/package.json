@@ -1,0 +1,19 @@
+{
+  "name": "@catering/logger",
+  "version": "1.0.0",
+  "description": "Winston-based logger for catering system",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": ["catering", "logger", "winston"],
+  "author": "Catering Team",
+  "license": "MIT",
+  "dependencies": {
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

@@ -1,0 +1,425 @@
+openapi: 3.0.3
+info:
+  title: Auth Service - سرویس احراز هویت
+  description: |
+    سرویس احراز هویت برای سیستم کترینگ سازمانی
+    
+    ## قابلیت‌ها
+    - ثبت‌نام کاربر جدید
+    - ورود و صدور توکن JWT
+    - مدیریت توکن‌های تمدید
+    - بازیابی رمز عبور
+    - مدیریت نشست‌ها
+    
+    ## احراز هویت
+    برای endpoint‌های محافظت شده، توکن JWT را در هدر Authorization ارسال کنید:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+  version: 1.0.0
+  contact:
+    name: تیم کترینگ
+    email: support@catering.example.com
+
+servers:
+  - url: http://localhost:3001
+    description: سرور توسعه
+
+tags:
+  - name: احراز هویت
+    description: عملیات ثبت‌نام، ورود و خروج
+  - name: توکن
+    description: مدیریت توکن‌ها
+  - name: رمز عبور
+    description: بازیابی و تغییر رمز عبور
+  - name: نشست
+    description: مدیریت نشست‌های کاربر
+
+paths:
+  /health:
+    get:
+      summary: بررسی سلامت سرویس
+      responses:
+        '200':
+          description: سرویس سالم است
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  service: auth-service
+                  status: healthy
+                  version: "1.0.0"
+                message: "سرویس در حال اجرا است"
+
+  /api/v1/auth/register:
+    post:
+      tags: [احراز هویت]
+      summary: ثبت‌نام کاربر جدید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: "user@example.com"
+              phone: "09121234567"
+              password: "SecurePass123!"
+              role: "personal_user"
+      responses:
+        '201':
+          description: ثبت‌نام موفق
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  userId: "550e8400-e29b-41d4-a716-446655440000"
+                  email: "user@example.com"
+                message: "ثبت‌نام با موفقیت انجام شد. لطفاً ایمیل خود را تأیید کنید"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/DuplicateError'
+
+  /api/v1/auth/login:
+    post:
+      tags: [احراز هویت]
+      summary: ورود به سیستم
+      description: |
+        محدودیت: حداکثر ۵ تلاش در دقیقه
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "user@example.com"
+              password: "SecurePass123!"
+      responses:
+        '200':
+          description: ورود موفق
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                success: true
+                data:
+                  accessToken: "eyJhbGciOiJIUzI1NiIs..."
+                  refreshToken: "a1b2c3d4e5f6..."
+                  expiresIn: 3600
+                  user:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "user@example.com"
+                    firstName: "علی"
+                    lastName: "محمدی"
+                    role: "personal_user"
+                message: "ورود با موفقیت انجام شد"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /api/v1/auth/refresh-token:
+    post:
+      tags: [توکن]
+      summary: تمدید توکن دسترسی
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+            example:
+              refreshToken: "a1b2c3d4e5f6..."
+      responses:
+        '200':
+          description: توکن تمدید شد
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  accessToken: "eyJhbGciOiJIUzI1NiIs..."
+                  refreshToken: "new-refresh-token..."
+                  expiresIn: 3600
+                message: "توکن با موفقیت تمدید شد"
+        '401':
+          $ref: '#/components/responses/InvalidToken'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [احراز هویت]
+      summary: خروج از سیستم
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: خروج موفق
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+                message: "خروج با موفقیت انجام شد"
+
+  /api/v1/auth/logout-all:
+    post:
+      tags: [نشست]
+      summary: خروج از تمام دستگاه‌ها
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: خروج از همه دستگاه‌ها
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+                message: "از تمام دستگاه‌ها خارج شدید"
+
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [رمز عبور]
+      summary: درخواست بازیابی رمز عبور
+      description: |
+        محدودیت: حداکثر ۳ درخواست در ۱۵ دقیقه
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+            example:
+              email: "user@example.com"
+      responses:
+        '200':
+          description: درخواست ثبت شد
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+                message: "در صورت وجود حساب کاربری، لینک بازیابی رمز عبور به ایمیل شما ارسال خواهد شد"
+
+  /api/v1/auth/reset-password:
+    post:
+      tags: [رمز عبور]
+      summary: بازنشانی رمز عبور
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+            example:
+              token: "reset-token-here"
+              password: "NewSecurePass123!"
+      responses:
+        '200':
+          description: رمز عبور تغییر کرد
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+                message: "رمز عبور با موفقیت تغییر کرد. لطفاً دوباره وارد شوید"
+        '400':
+          $ref: '#/components/responses/InvalidToken'
+
+  /api/v1/auth/verify-token:
+    post:
+      tags: [توکن]
+      summary: اعتبارسنجی توکن
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: توکن معتبر است
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  valid: true
+                  userId: "550e8400-e29b-41d4-a716-446655440000"
+                  email: "user@example.com"
+                  role: "personal_user"
+                  expiresAt: "2024-01-15T12:00:00.000Z"
+                message: "توکن معتبر است"
+        '401':
+          $ref: '#/components/responses/InvalidToken'
+
+  /api/v1/auth/sessions:
+    get:
+      tags: [نشست]
+      summary: دریافت نشست‌های فعال
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: لیست نشست‌ها
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  - id: "session-id-1"
+                    device: "desktop"
+                    browser: "Chrome"
+                    os: "Windows"
+                    ip: "192.168.1.1"
+                    lastActivity: "2024-01-15T10:30:00.000Z"
+                    createdAt: "2024-01-14T08:00:00.000Z"
+                message: "لیست نشست‌های فعال"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          pattern: '^(\+98|0)?9\d{9}$'
+        password:
+          type: string
+          minLength: 8
+        role:
+          type: string
+          enum: [personal_user, company_admin, company_employee]
+          default: personal_user
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            accessToken:
+              type: string
+            refreshToken:
+              type: string
+            expiresIn:
+              type: integer
+            user:
+              type: object
+        message:
+          type: string
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          minLength: 8
+
+  responses:
+    ValidationError:
+      description: خطای اعتبارسنجی
+      content:
+        application/json:
+          example:
+            success: false
+            error:
+              code: "ERR_VALIDATION"
+              message: "اطلاعات وارد شده نامعتبر است"
+              details:
+                - field: "email"
+                  message: "فرمت ایمیل نامعتبر است"
+
+    Unauthorized:
+      description: احراز هویت ناموفق
+      content:
+        application/json:
+          example:
+            success: false
+            error:
+              code: "ERR_INVALID_CREDENTIALS"
+              message: "ایمیل یا رمز عبور اشتباه است"
+
+    InvalidToken:
+      description: توکن نامعتبر
+      content:
+        application/json:
+          example:
+            success: false
+            error:
+              code: "ERR_INVALID_TOKEN"
+              message: "توکن نامعتبر یا منقضی شده است"
+
+    DuplicateError:
+      description: داده تکراری
+      content:
+        application/json:
+          example:
+            success: false
+            error:
+              code: "ERR_DUPLICATE"
+              message: "این ایمیل قبلاً ثبت شده است"
+
+    RateLimitError:
+      description: محدودیت نرخ
+      content:
+        application/json:
+          example:
+            success: false
+            error:
+              code: "ERR_RATE_LIMIT"
+              message: "تعداد تلاش‌های ورود بیش از حد مجاز است. لطفاً یک دقیقه صبر کنید"
+
+security:
+  - bearerAuth: []

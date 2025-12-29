@@ -1,0 +1,84 @@
+version: '3.8'
+
+# Development compose - Infrastructure only
+# Run services locally with npm run dev
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: catering-postgres-dev
+    environment:
+      POSTGRES_USER: catering_user
+      POSTGRES_PASSWORD: catering_pass_123
+      POSTGRES_DB: catering_db
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - catering-dev-network
+
+  mongodb:
+    image: mongo:6
+    container_name: catering-mongodb-dev
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: catering_user
+      MONGO_INITDB_ROOT_PASSWORD: catering_pass_123
+    volumes:
+      - mongodb_dev_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - catering-dev-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: catering-redis-dev
+    command: redis-server --requirepass redis_pass_123
+    volumes:
+      - redis_dev_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - catering-dev-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: catering-rabbitmq-dev
+    environment:
+      RABBITMQ_DEFAULT_USER: catering_user
+      RABBITMQ_DEFAULT_PASS: rabbitmq_pass_123
+    volumes:
+      - rabbitmq_dev_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - catering-dev-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: catering-minio-dev
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_access_key
+      MINIO_ROOT_PASSWORD: minio_secret_key
+    volumes:
+      - minio_dev_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - catering-dev-network
+
+networks:
+  catering-dev-network:
+    driver: bridge
+
+volumes:
+  postgres_dev_data:
+  mongodb_dev_data:
+  redis_dev_data:
+  rabbitmq_dev_data:
+  minio_dev_data:
