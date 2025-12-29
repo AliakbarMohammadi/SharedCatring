@@ -50,7 +50,12 @@ const config = {
   },
 
   // Frontend
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000'
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+
+  // Services
+  services: {
+    identity: process.env.IDENTITY_SERVICE_URL || 'http://localhost:3002'
+  }
 };
 
 module.exports = config;

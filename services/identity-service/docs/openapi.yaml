@@ -1,0 +1,595 @@
+openapi: 3.0.3
+info:
+  title: Identity Service API
+  description: سرویس مدیریت هویت و دسترسی‌ها - سیستم کترینگ سازمانی
+  version: 1.0.0
+  contact:
+    name: تیم کترینگ
+
+servers:
+  - url: http://localhost:3002
+    description: سرور توسعه
+
+tags:
+  - name: Users
+    description: مدیریت کاربران
+  - name: Roles
+    description: مدیریت نقش‌ها
+  - name: Permissions
+    description: مدیریت دسترسی‌ها
+  - name: Health
+    description: بررسی سلامت سرویس
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: بررسی سلامت سرویس
+      responses:
+        '200':
+          description: سرویس سالم است
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/identity/users:
+    post:
+      tags: [Users]
+      summary: ایجاد کاربر جدید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: کاربر با موفقیت ایجاد شد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: ایمیل یا شماره موبایل تکراری است
+
+    get:
+      tags: [Users]
+      summary: لیست کاربران
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: شماره صفحه
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: تعداد در هر صفحه
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, suspended, pending]
+          description: فیلتر بر اساس وضعیت
+        - name: roleId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: فیلتر بر اساس نقش
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: جستجو در نام، ایمیل و شماره موبایل
+      responses:
+        '200':
+          description: لیست کاربران
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersListResponse'
+
+  /api/v1/identity/users/{id}:
+    get:
+      tags: [Users]
+      summary: دریافت اطلاعات کاربر
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: اطلاعات کاربر
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Users]
+      summary: ویرایش کاربر
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: کاربر با موفقیت ویرایش شد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Users]
+      summary: حذف کاربر
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: کاربر با موفقیت حذف شد
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/identity/users/{id}/status:
+    patch:
+      tags: [Users]
+      summary: تغییر وضعیت کاربر
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [active, inactive, suspended, pending]
+                  description: وضعیت جدید
+      responses:
+        '200':
+          description: وضعیت کاربر تغییر کرد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /api/v1/identity/users/{id}/assign-role:
+    post:
+      tags: [Users]
+      summary: تخصیص نقش به کاربر
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roleId]
+              properties:
+                roleId:
+                  type: string
+                  format: uuid
+                  description: شناسه نقش
+      responses:
+        '200':
+          description: نقش با موفقیت تخصیص داده شد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /api/v1/identity/roles:
+    get:
+      tags: [Roles]
+      summary: لیست نقش‌ها
+      responses:
+        '200':
+          description: لیست نقش‌ها
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RolesListResponse'
+
+    post:
+      tags: [Roles]
+      summary: ایجاد نقش جدید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: نقش با موفقیت ایجاد شد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+
+  /api/v1/identity/roles/{id}:
+    get:
+      tags: [Roles]
+      summary: دریافت اطلاعات نقش
+      parameters:
+        - $ref: '#/components/parameters/RoleId'
+      responses:
+        '200':
+          description: اطلاعات نقش
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+
+    put:
+      tags: [Roles]
+      summary: ویرایش نقش
+      parameters:
+        - $ref: '#/components/parameters/RoleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: نقش با موفقیت ویرایش شد
+
+    delete:
+      tags: [Roles]
+      summary: حذف نقش
+      parameters:
+        - $ref: '#/components/parameters/RoleId'
+      responses:
+        '200':
+          description: نقش با موفقیت حذف شد
+
+  /api/v1/identity/roles/{id}/permissions:
+    post:
+      tags: [Roles]
+      summary: تخصیص دسترسی‌ها به نقش
+      parameters:
+        - $ref: '#/components/parameters/RoleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permissionIds]
+              properties:
+                permissionIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: لیست شناسه دسترسی‌ها
+      responses:
+        '200':
+          description: دسترسی‌ها با موفقیت تخصیص داده شدند
+
+  /api/v1/identity/permissions:
+    get:
+      tags: [Permissions]
+      summary: لیست دسترسی‌ها
+      parameters:
+        - name: resource
+          in: query
+          schema:
+            type: string
+          description: فیلتر بر اساس منبع
+      responses:
+        '200':
+          description: لیست دسترسی‌ها
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionsListResponse'
+
+components:
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: شناسه کاربر
+
+    RoleId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: شناسه نقش
+
+  schemas:
+    CreateUserRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: ایمیل کاربر
+        phone:
+          type: string
+          description: شماره موبایل
+        password:
+          type: string
+          minLength: 8
+          description: رمز عبور
+        firstName:
+          type: string
+          description: نام
+        lastName:
+          type: string
+          description: نام خانوادگی
+        roleId:
+          type: string
+          format: uuid
+          description: شناسه نقش
+        companyId:
+          type: string
+          format: uuid
+          description: شناسه شرکت
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        companyId:
+          type: string
+          format: uuid
+
+    CreateRoleRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: نام نقش
+        description:
+          type: string
+          description: توضیحات
+
+    UpdateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        phone:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, suspended, pending]
+        emailVerified:
+          type: boolean
+        phoneVerified:
+          type: boolean
+        role:
+          $ref: '#/components/schemas/RoleBasic'
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleBasic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        isSystem:
+          type: boolean
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        createdAt:
+          type: string
+          format: date-time
+
+    Permission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        resource:
+          type: string
+        action:
+          type: string
+        description:
+          type: string
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/User'
+        message:
+          type: string
+
+    UsersListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        message:
+          type: string
+
+    RoleResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Role'
+        message:
+          type: string
+
+    RolesListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        message:
+          type: string
+
+    PermissionsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            service:
+              type: string
+            status:
+              type: string
+            version:
+              type: string
+            environment:
+              type: string
+            timestamp:
+              type: string
+            uptime:
+              type: number
+            dependencies:
+              type: object
+        message:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+            timestamp:
+              type: string
+
+  responses:
+    ValidationError:
+      description: خطای اعتبارسنجی
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: یافت نشد
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

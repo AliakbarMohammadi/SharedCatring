@@ -1,39 +1,43 @@
 const { Sequelize } = require('sequelize');
 const config = require('./index');
+const logger = require('../utils/logger');
 
 const sequelize = new Sequelize(
-  config.database.database,
-  config.database.username,
+  config.database.name,
+  config.database.user,
   config.database.password,
   {
     host: config.database.host,
     port: config.database.port,
-    dialect: config.database.dialect,
-    logging: config.database.logging,
+    dialect: 'postgres',
+    logging: config.env === 'development' ? (msg) => logger.debug(msg) : false,
     pool: config.database.pool,
-    define: {
-      timestamps: true,
-      underscored: true
-    }
+    define: { timestamps: true, underscored: true }
   }
 );
 
-const connectDatabase = async () => {
+const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log('PostgreSQL connected successfully');
-    
+    logger.info(`PostgreSQL متصل شد: ${config.database.host}:${config.database.port}`);
     if (config.env === 'development') {
-      await sequelize.sync({ alter: true });
-      console.log('Database synchronized');
+      await sequelize.sync({ alter: false });
+      logger.info('مدل‌های دیتابیس همگام‌سازی شدند');
     }
+    return sequelize;
   } catch (error) {
-    console.error('Unable to connect to PostgreSQL:', error.message);
-    process.exit(1);
+    logger.error('خطا در اتصال به PostgreSQL', { error: error.message });
+    throw error;
   }
 };
 
-module.exports = {
-  sequelize,
-  connectDatabase
+const disconnectDB = async () => {
+  try {
+    await sequelize.close();
+    logger.info('اتصال PostgreSQL بسته شد');
+  } catch (error) {
+    logger.error('خطا در بستن اتصال PostgreSQL', { error: error.message });
+  }
 };
+
+module.exports = { sequelize, connectDB, disconnectDB };

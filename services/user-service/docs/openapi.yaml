@@ -1,0 +1,435 @@
+openapi: 3.0.3
+info:
+  title: User Service API
+  description: سرویس مدیریت پروفایل و تنظیمات کاربران - سیستم کترینگ سازمانی
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3003
+    description: سرور توسعه
+
+tags:
+  - name: Profile
+    description: مدیریت پروفایل کاربر
+  - name: Preferences
+    description: مدیریت تنظیمات کاربر
+  - name: Addresses
+    description: مدیریت آدرس‌های کاربر
+  - name: Health
+    description: بررسی سلامت سرویس
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: بررسی سلامت سرویس
+      responses:
+        '200':
+          description: سرویس سالم است
+
+  /api/v1/users/profile:
+    get:
+      tags: [Profile]
+      summary: دریافت پروفایل کاربر
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+      responses:
+        '200':
+          description: پروفایل کاربر
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Profile]
+      summary: ویرایش پروفایل
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: پروفایل ویرایش شد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+
+  /api/v1/users/profile/avatar:
+    put:
+      tags: [Profile]
+      summary: آپلود آواتار
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [avatarUrl]
+              properties:
+                avatarUrl:
+                  type: string
+                  format: uri
+                  description: آدرس فایل آواتار
+      responses:
+        '200':
+          description: آواتار ویرایش شد
+
+  /api/v1/users/preferences:
+    get:
+      tags: [Preferences]
+      summary: دریافت تنظیمات کاربر
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+      responses:
+        '200':
+          description: تنظیمات کاربر
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferenceResponse'
+
+    put:
+      tags: [Preferences]
+      summary: ویرایش تنظیمات
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreferenceRequest'
+      responses:
+        '200':
+          description: تنظیمات ویرایش شد
+
+  /api/v1/users/addresses:
+    get:
+      tags: [Addresses]
+      summary: لیست آدرس‌ها
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+      responses:
+        '200':
+          description: لیست آدرس‌ها
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressListResponse'
+
+    post:
+      tags: [Addresses]
+      summary: افزودن آدرس
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAddressRequest'
+      responses:
+        '201':
+          description: آدرس ایجاد شد
+
+  /api/v1/users/addresses/{id}:
+    put:
+      tags: [Addresses]
+      summary: ویرایش آدرس
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/AddressId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAddressRequest'
+      responses:
+        '200':
+          description: آدرس ویرایش شد
+
+    delete:
+      tags: [Addresses]
+      summary: حذف آدرس
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/AddressId'
+      responses:
+        '200':
+          description: آدرس حذف شد
+
+  /api/v1/users/addresses/{id}/default:
+    patch:
+      tags: [Addresses]
+      summary: تنظیم آدرس پیش‌فرض
+      parameters:
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/AddressId'
+      responses:
+        '200':
+          description: آدرس پیش‌فرض تنظیم شد
+
+components:
+  parameters:
+    UserIdHeader:
+      name: X-User-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: شناسه کاربر (توسط API Gateway تنظیم می‌شود)
+
+    AddressId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: شناسه آدرس
+
+  schemas:
+    UpdateProfileRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+          description: نام
+        lastName:
+          type: string
+          maxLength: 100
+          description: نام خانوادگی
+        nationalCode:
+          type: string
+          pattern: '^\d{10}$'
+          description: کد ملی
+        birthDate:
+          type: string
+          format: date
+          description: تاریخ تولد
+        gender:
+          type: string
+          enum: [male, female, other]
+          description: جنسیت
+
+    UpdatePreferenceRequest:
+      type: object
+      properties:
+        dietaryRestrictions:
+          type: array
+          items:
+            type: string
+          description: محدودیت‌های غذایی
+        allergies:
+          type: array
+          items:
+            type: string
+          description: آلرژی‌ها
+        favoriteFoods:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: غذاهای مورد علاقه
+        notificationSettings:
+          type: object
+          properties:
+            email:
+              type: boolean
+            sms:
+              type: boolean
+            push:
+              type: boolean
+        language:
+          type: string
+          enum: [fa, en]
+
+    CreateAddressRequest:
+      type: object
+      required: [address]
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          description: عنوان
+        address:
+          type: string
+          description: آدرس کامل
+        city:
+          type: string
+          maxLength: 100
+          description: شهر
+        postalCode:
+          type: string
+          maxLength: 10
+          description: کد پستی
+        latitude:
+          type: number
+          description: عرض جغرافیایی
+        longitude:
+          type: number
+          description: طول جغرافیایی
+        isDefault:
+          type: boolean
+          description: آدرس پیش‌فرض
+
+    UpdateAddressRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        postalCode:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        isDefault:
+          type: boolean
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        nationalCode:
+          type: string
+        avatarUrl:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        gender:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Preference:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        dietaryRestrictions:
+          type: array
+          items:
+            type: string
+        allergies:
+          type: array
+          items:
+            type: string
+        favoriteFoods:
+          type: array
+          items:
+            type: string
+        notificationSettings:
+          type: object
+        language:
+          type: string
+
+    Address:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        postalCode:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        isDefault:
+          type: boolean
+
+    ProfileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Profile'
+        message:
+          type: string
+
+    PreferenceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Preference'
+        message:
+          type: string
+
+    AddressListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Address'
+        message:
+          type: string
+
+  responses:
+    Unauthorized:
+      description: احراز هویت الزامی است
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string

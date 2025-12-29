@@ -1,80 +1,103 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const morgan = require('morgan');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
+const path = require('path');
+
 const config = require('./config');
-const { connectDatabase } = require('./config/database');
-const userRoutes = require('./api/routes/v1/userRoutes');
+const { connectDB, disconnectDB } = require('./config/database');
+const logger = require('./utils/logger');
+const eventConsumer = require('./events/consumer');
+const apiRoutes = require('./api/routes');
+const { errorHandler, notFoundHandler, generalLimiter } = require('./api/middlewares');
 
-const app = express();
+const createApp = () => {
+  const app = express();
 
-// Security middlewares
-app.use(helmet());
-app.use(cors());
+  app.set('trust proxy', 1);
+  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(cors({ origin: '*' }));
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true }));
 
-// Request parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+  if (config.env === 'development') app.use(morgan('dev'));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      service: 'user-service',
-      status: 'healthy',
-      timestamp: new Date().toISOString()
-    },
-    message: 'سرویس در حال اجرا است'
+  app.use(generalLimiter);
+
+  app.get('/health', async (req, res) => {
+    const { sequelize } = require('./config/database');
+    let dbStatus = 'disconnected';
+    try { await sequelize.authenticate(); dbStatus = 'connected'; } catch (e) {}
+
+    res.json({
+      success: true,
+      data: {
+        service: config.serviceName,
+        status: 'healthy',
+        version: '1.0.0',
+        environment: config.env,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        dependencies: { postgresql: dbStatus, rabbitmq: eventConsumer.connection ? 'connected' : 'disconnected' }
+      },
+      message: 'سرویس در حال اجرا است'
+    });
   });
-});
 
-// API routes
-app.use('/api/v1/users', userRoutes);
+  try {
+    const swaggerDocument = YAML.load(path.join(__dirname, '../docs/openapi.yaml'));
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'User Service - سرویس کاربران'
+    }));
+    logger.info('مستندات Swagger در /api-docs در دسترس است');
+  } catch (error) {
+    logger.warn('بارگذاری مستندات Swagger ناموفق بود', { error: error.message });
+  }
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: {
-      code: 'ERR_1002',
-      message: 'مسیر درخواستی یافت نشد',
-      details: []
-    }
-  });
-});
+  app.use('/api', apiRoutes);
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
-// Error handler
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  const statusCode = err.statusCode || 500;
-  const errorCode = err.errorCode || 'ERR_1000';
-  const message = err.message || 'خطای داخلی سرور';
+  return app;
+};
 
-  res.status(statusCode).json({
-    success: false,
-    error: {
-      code: errorCode,
-      message,
-      details: err.details || []
-    }
-  });
-});
-
-// Start server
 const startServer = async () => {
   try {
-    await connectDatabase();
-    
-    const PORT = config.port;
-    app.listen(PORT, () => {
-      console.log(`User Service running on port ${PORT}`);
+    await connectDB();
+    await eventConsumer.connect();
+
+    const app = createApp();
+    const server = app.listen(config.port, () => {
+      logger.info(`🚀 User Service در حال اجرا روی پورت ${config.port}`);
+      logger.info(`📚 مستندات API: http://localhost:${config.port}/api-docs`);
+      logger.info(`❤️  Health Check: http://localhost:${config.port}/health`);
+      logger.info(`🌍 محیط: ${config.env}`);
     });
+
+    const gracefulShutdown = async (signal) => {
+      logger.info(`سیگنال ${signal} دریافت شد. در حال خاموش شدن...`);
+      server.close(async () => {
+        await disconnectDB();
+        await eventConsumer.close();
+        logger.info('خاموش شدن کامل شد');
+        process.exit(0);
+      });
+      setTimeout(() => process.exit(1), 10000);
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+    return server;
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('خطا در راه‌اندازی سرور', { error: error.message });
     process.exit(1);
   }
 };
 
-startServer();
+if (require.main === module) startServer();
 
-module.exports = app;
+module.exports = { createApp, startServer };

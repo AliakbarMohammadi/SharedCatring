@@ -38,9 +38,29 @@ const createApp = () => {
   // CORS
   app.use(cors(config.cors));
 
-  // Request parsing
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Request parsing - Skip for proxy routes
+  const skipBodyParsing = (req) => {
+    // Skip body parsing for routes that will be proxied
+    const proxyPaths = ['/api/v1/auth', '/api/v1/identity', '/api/v1/users', 
+      '/api/v1/companies', '/api/v1/menus', '/api/v1/orders', '/api/v1/invoices',
+      '/api/v1/payments', '/api/v1/wallets', '/api/v1/notifications', 
+      '/api/v1/reports', '/api/v1/files'];
+    return proxyPaths.some(path => req.path.startsWith(path));
+  };
+
+  app.use((req, res, next) => {
+    if (skipBodyParsing(req)) {
+      return next();
+    }
+    express.json({ limit: '10mb' })(req, res, next);
+  });
+
+  app.use((req, res, next) => {
+    if (skipBodyParsing(req)) {
+      return next();
+    }
+    express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
+  });
 
   // HTTP request logging (Morgan)
   if (config.env === 'development') {

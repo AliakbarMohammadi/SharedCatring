@@ -39,7 +39,7 @@ const setupProxyRoutes = (app) => {
   const { authRateLimiter } = require('../middlewares/rateLimiter');
 
   // Auth Service - Public routes
-  app.use('/api/v1/auth', authRateLimiter, createProxy(config.services.auth, {
+  app.use('/api/v1/auth', createProxy(config.services.auth, {
     '^/api/v1/auth': '/api/v1/auth'
   }));
 

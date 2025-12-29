@@ -1,0 +1,417 @@
+openapi: 3.0.3
+info:
+  title: Company Service API
+  description: سرویس مدیریت شرکت‌ها، دپارتمان‌ها و کارمندان - سیستم کترینگ سازمانی
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3004
+    description: سرور توسعه
+
+tags:
+  - name: Companies
+    description: مدیریت شرکت‌ها
+  - name: Departments
+    description: مدیریت دپارتمان‌ها
+  - name: Employees
+    description: مدیریت کارمندان
+  - name: Shifts
+    description: مدیریت شیفت‌های تحویل
+  - name: Subsidy Rules
+    description: مدیریت قوانین یارانه
+
+paths:
+  /health:
+    get:
+      summary: بررسی سلامت سرویس
+      responses:
+        '200':
+          description: سرویس سالم است
+
+  /api/v1/companies:
+    post:
+      tags: [Companies]
+      summary: ثبت شرکت جدید
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompanyRequest'
+      responses:
+        '201':
+          description: شرکت ثبت شد
+
+    get:
+      tags: [Companies]
+      summary: لیست شرکت‌ها
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: لیست شرکت‌ها
+
+  /api/v1/companies/{id}:
+    get:
+      tags: [Companies]
+      summary: جزئیات شرکت
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      responses:
+        '200':
+          description: اطلاعات شرکت
+
+    put:
+      tags: [Companies]
+      summary: ویرایش شرکت
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompanyRequest'
+      responses:
+        '200':
+          description: شرکت ویرایش شد
+
+  /api/v1/companies/{id}/status:
+    patch:
+      tags: [Companies]
+      summary: تغییر وضعیت شرکت
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, reviewing, approved, active, rejected, suspended]
+      responses:
+        '200':
+          description: وضعیت تغییر کرد
+
+  /api/v1/companies/{id}/dashboard:
+    get:
+      tags: [Companies]
+      summary: داشبورد شرکت
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      responses:
+        '200':
+          description: داشبورد شرکت
+
+  /api/v1/companies/{id}/departments:
+    post:
+      tags: [Departments]
+      summary: ایجاد دپارتمان
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDepartmentRequest'
+      responses:
+        '201':
+          description: دپارتمان ایجاد شد
+
+    get:
+      tags: [Departments]
+      summary: لیست دپارتمان‌ها
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      responses:
+        '200':
+          description: لیست دپارتمان‌ها
+
+  /api/v1/companies/{id}/employees:
+    post:
+      tags: [Employees]
+      summary: افزودن کارمند
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEmployeeRequest'
+      responses:
+        '201':
+          description: کارمند اضافه شد
+
+    get:
+      tags: [Employees]
+      summary: لیست کارمندان
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+        - name: departmentId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: لیست کارمندان
+
+  /api/v1/companies/{id}/employees/bulk:
+    post:
+      tags: [Employees]
+      summary: افزودن گروهی کارمندان
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                employees:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CreateEmployeeRequest'
+      responses:
+        '201':
+          description: کارمندان اضافه شدند
+
+  /api/v1/companies/{id}/employees/export:
+    get:
+      tags: [Employees]
+      summary: خروجی اکسل کارمندان
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      responses:
+        '200':
+          description: فایل اکسل
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /api/v1/companies/{id}/shifts:
+    post:
+      tags: [Shifts]
+      summary: ایجاد شیفت تحویل
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShiftRequest'
+      responses:
+        '201':
+          description: شیفت ایجاد شد
+
+    get:
+      tags: [Shifts]
+      summary: لیست شیفت‌ها
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      responses:
+        '200':
+          description: لیست شیفت‌ها
+
+  /api/v1/companies/{id}/subsidy-rules:
+    post:
+      tags: [Subsidy Rules]
+      summary: ایجاد قانون یارانه
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubsidyRuleRequest'
+      responses:
+        '201':
+          description: قانون ایجاد شد
+
+    get:
+      tags: [Subsidy Rules]
+      summary: لیست قوانین یارانه
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      responses:
+        '200':
+          description: لیست قوانین
+
+components:
+  parameters:
+    CompanyId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: شناسه شرکت
+
+  schemas:
+    CreateCompanyRequest:
+      type: object
+      required: [name, adminUserId]
+      properties:
+        name:
+          type: string
+          description: نام شرکت
+        legalName:
+          type: string
+          description: نام حقوقی
+        registrationNumber:
+          type: string
+          description: شماره ثبت
+        taxId:
+          type: string
+          description: شناسه مالیاتی
+        adminUserId:
+          type: string
+          format: uuid
+          description: شناسه مدیر
+        address:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        contractType:
+          type: string
+          enum: [prepaid, postpaid, credit]
+        creditLimit:
+          type: number
+
+    UpdateCompanyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        legalName:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+
+    CreateDepartmentRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: نام دپارتمان
+        code:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+        managerUserId:
+          type: string
+          format: uuid
+        monthlyBudget:
+          type: number
+
+    CreateEmployeeRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        departmentId:
+          type: string
+          format: uuid
+        employeeCode:
+          type: string
+        jobTitle:
+          type: string
+        shiftId:
+          type: string
+          format: uuid
+        dailySubsidyLimit:
+          type: number
+        monthlySubsidyLimit:
+          type: number
+        subsidyPercentage:
+          type: integer
+
+    CreateShiftRequest:
+      type: object
+      required: [name, deliveryTime, orderDeadline]
+      properties:
+        name:
+          type: string
+          description: نام شیفت
+        deliveryTime:
+          type: string
+          description: زمان تحویل (HH:MM)
+        orderDeadline:
+          type: string
+          description: مهلت سفارش (HH:MM)
+        isActive:
+          type: boolean
+
+    CreateSubsidyRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        ruleType:
+          type: string
+          enum: [percentage, fixed, mixed]
+        percentage:
+          type: integer
+        fixedAmount:
+          type: number
+        maxPerMeal:
+          type: number
+        maxPerDay:
+          type: number
+        maxPerMonth:
+          type: number
+        applicableMeals:
+          type: array
+          items:
+            type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+        priority:
+          type: integer

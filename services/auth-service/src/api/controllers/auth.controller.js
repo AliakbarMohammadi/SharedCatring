@@ -1,10 +1,20 @@
 const { authService, tokenService } = require('../../services');
 const logger = require('../../utils/logger');
 
-/**
- * Auth Controller
- * کنترلر احراز هویت
- */
+// Mock user data for testing
+const mockUsers = {
+  'test@example.com': {
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    email: 'test@example.com',
+    password: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', // Test@123456
+    firstName: 'کاربر',
+    lastName: 'تست',
+    role: 'personal_user',
+    isActive: true,
+    companyId: null
+  }
+};
+
 class AuthController {
   /**
    * Register new user
@@ -12,25 +22,48 @@ class AuthController {
    */
   async register(req, res, next) {
     try {
-      const { email, phone, password, role } = req.body;
+      const { email, phone, password } = req.body;
       const requestInfo = {
         ip: req.ip,
         userAgent: req.get('user-agent')
       };
 
-      // Note: In production, check if email exists via user-service
-      // For now, we'll handle this via events
+      // Check if user already exists (mock)
+      if (mockUsers[email]) {
+        throw {
+          statusCode: 409,
+          code: 'ERR_USER_EXISTS',
+          message: 'این ایمیل قبلاً ثبت شده است'
+        };
+      }
 
-      const result = await authService.register(
-        { email, phone, password, role },
-        requestInfo
-      );
+      // Hash password and create mock user
+      const hashedPassword = await authService.hashPassword(password);
+      const userId = require('uuid').v4();
+      
+      mockUsers[email] = {
+        id: userId,
+        email,
+        phone,
+        password: hashedPassword,
+        firstName: null,
+        lastName: null,
+        role: 'personal_user',
+        isActive: true,
+        companyId: null
+      };
+
+      // Generate verification token
+      const verifyToken = tokenService.generateRandomToken();
+      await tokenService.saveVerifyToken(userId, verifyToken);
+
+      logger.info('کاربر جدید ثبت‌نام کرد', { userId, email });
 
       res.status(201).json({
         success: true,
         data: {
-          userId: result.userId,
-          email: result.email
+          userId,
+          email
         },
         message: 'ثبت‌نام با موفقیت انجام شد. لطفاً ایمیل خود را تأیید کنید'
       });
@@ -51,29 +84,20 @@ class AuthController {
         userAgent: req.get('user-agent')
       };
 
-      // Note: In production, fetch user from user-service
-      // For demo, we'll use a mock user or return error
-      // This would typically be an HTTP call to user-service
-
-      // Mock user for testing (remove in production)
-      const mockUser = {
-        id: 'mock-user-id',
-        _id: 'mock-user-id',
-        email: email,
-        password: await authService.hashPassword('Test@123456'),
-        firstName: 'کاربر',
-        lastName: 'تست',
-        role: 'personal_user',
-        isActive: true
-      };
-
-      // In production, replace with:
-      // const userResponse = await serviceClient.get(`${USER_SERVICE_URL}/internal/users/by-email/${email}`);
-      // const user = userResponse.data;
+      // Get mock user
+      const user = mockUsers[email];
+      
+      if (!user) {
+        throw {
+          statusCode: 401,
+          code: 'ERR_INVALID_CREDENTIALS',
+          message: 'ایمیل یا رمز عبور اشتباه است'
+        };
+      }
 
       const result = await authService.login(
         { email, password },
-        mockUser,
+        user,
         requestInfo
       );
 
@@ -140,17 +164,14 @@ class AuthController {
     try {
       const { email } = req.body;
 
-      // Note: In production, verify email exists via user-service
-      // For demo, we'll use a mock user ID
-      const mockUserId = 'mock-user-id';
-
-      // In production:
-      // const userResponse = await serviceClient.get(`${USER_SERVICE_URL}/internal/users/by-email/${email}`);
-      // if (!userResponse.data) { return res.json({ success: true, ... }); } // Don't reveal if email exists
-
-      const result = await authService.forgotPassword(email, mockUserId);
+      // Get mock user
+      const user = mockUsers[email];
 
       // Always return success to prevent email enumeration
+      if (user) {
+        await authService.forgotPassword(email, user.id);
+      }
+
       res.json({
         success: true,
         data: null,

@@ -1,123 +1,86 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-require('dotenv').config();
+const morgan = require('morgan');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
+const path = require('path');
 
-const app = express();
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
+const config = require('./config');
+const { connectDB, disconnectDB } = require('./config/database');
+const logger = require('./utils/logger');
+const eventPublisher = require('./events/publisher');
+const apiRoutes = require('./api/routes');
+const { errorHandler, notFoundHandler, generalLimiter, extractUser } = require('./api/middlewares');
 
-const config = { port: parseInt(process.env.PORT, 10) || 3004 };
+const createApp = () => {
+  const app = express();
+  app.set('trust proxy', 1);
+  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(cors({ origin: '*' }));
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true }));
+  if (config.env === 'development') app.use(morgan('dev'));
+  app.use(generalLimiter);
+  app.use(extractUser);
 
-app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    data: { service: 'company-service', status: 'healthy', timestamp: new Date().toISOString() },
-    message: 'سرویس در حال اجرا است'
+  app.get('/health', async (req, res) => {
+    const { sequelize } = require('./config/database');
+    let dbStatus = 'disconnected';
+    try { await sequelize.authenticate(); dbStatus = 'connected'; } catch (e) {}
+    res.json({
+      success: true,
+      data: {
+        service: config.serviceName, status: 'healthy', version: '1.0.0', environment: config.env,
+        timestamp: new Date().toISOString(), uptime: process.uptime(),
+        dependencies: { postgresql: dbStatus, rabbitmq: eventPublisher.isConnected ? 'connected' : 'disconnected' }
+      },
+      message: 'سرویس در حال اجرا است'
+    });
   });
-});
 
-// Company routes
-app.post('/api/v1/companies', async (req, res) => {
-  const { name, nameEn, registrationNumber, address, phone, email, adminUserId } = req.body;
-  
-  res.status(201).json({
-    success: true,
-    data: {
-      id: `comp_${Date.now()}`,
-      name,
-      nameEn,
-      registrationNumber,
-      address,
-      phone,
-      email,
-      adminUserId,
-      status: 'active',
-      createdAt: new Date().toISOString()
-    },
-    message: 'شرکت با موفقیت ایجاد شد'
-  });
-});
+  try {
+    const swaggerDocument = YAML.load(path.join(__dirname, '../docs/openapi.yaml'));
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, { customSiteTitle: 'Company Service - سرویس شرکت‌ها' }));
+    logger.info('مستندات Swagger در /api-docs در دسترس است');
+  } catch (error) {
+    logger.warn('بارگذاری Swagger ناموفق بود', { error: error.message });
+  }
 
-app.get('/api/v1/companies', async (req, res) => {
-  const { page = 1, limit = 10, status, search } = req.query;
-  
-  res.json({
-    success: true,
-    data: [],
-    message: 'شرکت‌ها با موفقیت دریافت شد',
-    meta: { page: parseInt(page), limit: parseInt(limit), total: 0 }
-  });
-});
+  app.use('/api', apiRoutes);
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+  return app;
+};
 
-app.get('/api/v1/companies/:id', async (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      id: req.params.id,
-      name: 'شرکت نمونه',
-      nameEn: 'Sample Company',
-      status: 'active',
-      employeeCount: 50
-    },
-    message: 'اطلاعات شرکت دریافت شد'
-  });
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+    await eventPublisher.connect();
+    const app = createApp();
+    const server = app.listen(config.port, () => {
+      logger.info(`🚀 Company Service در حال اجرا روی پورت ${config.port}`);
+      logger.info(`📚 مستندات API: http://localhost:${config.port}/api-docs`);
+      logger.info(`❤️  Health Check: http://localhost:${config.port}/health`);
+    });
 
-app.put('/api/v1/companies/:id', async (req, res) => {
-  res.json({
-    success: true,
-    data: { id: req.params.id, ...req.body, updatedAt: new Date().toISOString() },
-    message: 'اطلاعات شرکت با موفقیت به‌روزرسانی شد'
-  });
-});
+    const gracefulShutdown = async (signal) => {
+      logger.info(`سیگنال ${signal} دریافت شد`);
+      server.close(async () => {
+        await disconnectDB();
+        await eventPublisher.close();
+        process.exit(0);
+      });
+      setTimeout(() => process.exit(1), 10000);
+    };
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    return server;
+  } catch (error) {
+    logger.error('خطا در راه‌اندازی سرور', { error: error.message });
+    process.exit(1);
+  }
+};
 
-app.patch('/api/v1/companies/:id/status', async (req, res) => {
-  const { status } = req.body;
-  res.json({
-    success: true,
-    data: { id: req.params.id, status },
-    message: 'وضعیت شرکت با موفقیت تغییر کرد'
-  });
-});
-
-// Department routes
-app.post('/api/v1/companies/:companyId/departments', async (req, res) => {
-  const { name, managerId } = req.body;
-  res.status(201).json({
-    success: true,
-    data: { id: `dept_${Date.now()}`, companyId: req.params.companyId, name, managerId },
-    message: 'دپارتمان با موفقیت ایجاد شد'
-  });
-});
-
-app.get('/api/v1/companies/:companyId/departments', async (req, res) => {
-  res.json({
-    success: true,
-    data: [],
-    message: 'دپارتمان‌ها دریافت شد'
-  });
-});
-
-// Subscription routes
-app.get('/api/v1/companies/:id/subscription', async (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      companyId: req.params.id,
-      plan: 'enterprise',
-      maxEmployees: 500,
-      currentEmployees: 50,
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-    },
-    message: 'اطلاعات اشتراک دریافت شد'
-  });
-});
-
-app.use((req, res) => {
-  res.status(404).json({ success: false, error: { code: 'ERR_1002', message: 'مسیر یافت نشد', details: [] } });
-});
-
-app.listen(config.port, () => console.log(`Company Service running on port ${config.port}`));
-module.exports = app;
+if (require.main === module) startServer();
+module.exports = { createApp, startServer };
