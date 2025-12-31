@@ -1,39 +1,43 @@
 const { Sequelize } = require('sequelize');
 const config = require('./index');
+const logger = require('../utils/logger');
 
 const sequelize = new Sequelize(
-  config.database.database,
-  config.database.username,
+  config.database.name,
+  config.database.user,
   config.database.password,
   {
     host: config.database.host,
     port: config.database.port,
-    dialect: config.database.dialect,
-    logging: config.database.logging,
-    pool: config.database.pool,
+    dialect: 'postgres',
+    logging: config.env === 'development' ? (msg) => logger.debug(msg) : false,
+    pool: {
+      max: 10,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    },
     define: {
-      timestamps: true,
-      underscored: true
+      underscored: true,
+      timestamps: true
     }
   }
 );
 
-const connectDatabase = async () => {
+const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log('PostgreSQL connected successfully');
+    logger.info(`PostgreSQL متصل شد: ${config.database.host}:${config.database.port}`);
     
+    // Sync models in development
     if (config.env === 'development') {
       await sequelize.sync({ alter: true });
-      console.log('Database synchronized');
+      logger.info('مدل‌های دیتابیس همگام‌سازی شدند');
     }
   } catch (error) {
-    console.error('Unable to connect to PostgreSQL:', error.message);
+    logger.error('خطا در اتصال به PostgreSQL', { error: error.message });
     process.exit(1);
   }
 };
 
-module.exports = {
-  sequelize,
-  connectDatabase
-};
+module.exports = { sequelize, connectDB };

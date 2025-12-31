@@ -1,24 +1,23 @@
 const mongoose = require('mongoose');
 const config = require('./index');
+const logger = require('../utils/logger');
 
-const connectDatabase = async () => {
+const connectDB = async () => {
   try {
-    await mongoose.connect(config.mongodb.uri, config.mongodb.options);
-    console.log('MongoDB connected successfully');
+    await mongoose.connect(config.mongodb.uri);
+    logger.info(`MongoDB متصل شد: ${mongoose.connection.host}`);
   } catch (error) {
-    console.error('Unable to connect to MongoDB:', error.message);
+    logger.error('خطا در اتصال به MongoDB', { error: error.message });
     process.exit(1);
   }
 };
 
-mongoose.connection.on('error', (err) => {
-  console.error('MongoDB connection error:', err);
-});
-
 mongoose.connection.on('disconnected', () => {
-  console.warn('MongoDB disconnected');
+  logger.warn('اتصال MongoDB قطع شد');
 });
 
-module.exports = {
-  connectDatabase
-};
+mongoose.connection.on('error', (err) => {
+  logger.error('خطای MongoDB', { error: err.message });
+});
+
+module.exports = connectDB;

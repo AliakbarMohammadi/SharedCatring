@@ -1,8 +1,19 @@
 FROM node:18-alpine
+
 WORKDIR /app
+
+# Install dependencies
 COPY package*.json ./
 RUN npm ci --only=production
+
+# Copy source code
 COPY . .
+
+# Create storage directory for PDFs
+RUN mkdir -p storage/invoices
+
 EXPOSE 3007
+
 HEALTHCHECK --interval=30s --timeout=3s CMD wget --spider http://localhost:3007/health || exit 1
+
 CMD ["node", "src/app.js"]

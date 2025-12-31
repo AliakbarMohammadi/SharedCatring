@@ -10,10 +10,12 @@ const {
 
 router.post('/', validateCreateUser, userController.create);
 router.get('/', userController.findAll);
+router.get('/by-email/:email', userController.findByEmailInternal);
 router.get('/:id', userController.findById);
 router.put('/:id', validateUpdateUser, userController.update);
 router.delete('/:id', userController.delete);
 router.patch('/:id/status', validateUpdateStatus, userController.updateStatus);
 router.post('/:id/assign-role', validateAssignRole, userController.assignRole);
+router.patch('/:id/password', userController.updatePassword);
 
 module.exports = router;

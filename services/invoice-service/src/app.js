@@ -1,94 +1,161 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-require('dotenv').config();
+const morgan = require('morgan');
+const swaggerUi = require('swagger-ui-express');
+const path = require('path');
+
+const config = require('./config');
+const { connectDB } = require('./config/database');
+const swaggerSpec = require('./config/swagger');
+const logger = require('./utils/logger');
+const errorHandler = require('./api/middlewares/errorHandler');
+const { extractUser } = require('./api/middlewares/auth');
+const eventPublisher = require('./events/publisher');
+const eventSubscriber = require('./events/subscriber');
+
+// Routes
+const v1Routes = require('./api/routes/v1');
+
+// Models (to initialize associations)
+require('./models');
 
 const app = express();
+
+// Security middleware
 app.use(helmet());
 app.use(cors());
-app.use(express.json());
 
-const config = { port: parseInt(process.env.PORT, 10) || 3007 };
+// Request logging
+app.use(morgan('combined', {
+  stream: { write: (message) => logger.debug(message.trim()) }
+}));
 
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Static files for PDF downloads
+app.use('/files/invoices', express.static(path.join(__dirname, '../storage/invoices')));
+
+// Extract user from headers
+app.use(extractUser);
+
+// Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'سرویس فاکتور - مستندات API'
+}));
+
+// Health check
 app.get('/health', (req, res) => {
   res.json({
     success: true,
-    data: { service: 'invoice-service', status: 'healthy', timestamp: new Date().toISOString() },
+    data: {
+      service: config.serviceName,
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    },
     message: 'سرویس در حال اجرا است'
   });
 });
 
-// Invoice routes
-app.post('/api/v1/invoices', async (req, res) => {
-  const { orderId, companyId, items, dueDate } = req.body;
-  const invoiceNumber = `INV${new Date().getFullYear()}${String(Date.now()).slice(-8)}`;
-  
-  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-  const tax = subtotal * 0.09;
-  const total = subtotal + tax;
+// API routes
+app.use('/api/v1/invoices', v1Routes);
 
-  res.status(201).json({
-    success: true,
-    data: {
-      id: `inv_${Date.now()}`,
-      invoiceNumber,
-      orderId,
-      companyId,
-      items,
-      subtotal,
-      tax,
-      total,
-      status: 'issued',
-      dueDate,
-      issuedAt: new Date().toISOString()
-    },
-    message: 'فاکتور با موفقیت ایجاد شد'
-  });
-});
-
-app.get('/api/v1/invoices', async (req, res) => {
-  const { companyId, status, page = 1, limit = 10 } = req.query;
-  
-  res.json({
-    success: true,
-    data: [],
-    message: 'فاکتورها با موفقیت دریافت شد',
-    meta: { page: parseInt(page), limit: parseInt(limit), total: 0 }
-  });
-});
-
-app.get('/api/v1/invoices/:id', async (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      id: req.params.id,
-      invoiceNumber: 'INV202401001',
-      status: 'issued',
-      total: 500000
-    },
-    message: 'فاکتور با موفقیت دریافت شد'
-  });
-});
-
-app.patch('/api/v1/invoices/:id/pay', async (req, res) => {
-  res.json({
-    success: true,
-    data: { id: req.params.id, status: 'paid', paidAt: new Date().toISOString() },
-    message: 'فاکتور با موفقیت پرداخت شد'
-  });
-});
-
-app.get('/api/v1/invoices/:id/pdf', async (req, res) => {
-  res.json({
-    success: true,
-    data: { downloadUrl: `/files/invoices/${req.params.id}.pdf` },
-    message: 'لینک دانلود فاکتور'
-  });
-});
-
+// 404 handler
 app.use((req, res) => {
-  res.status(404).json({ success: false, error: { code: 'ERR_1002', message: 'مسیر یافت نشد', details: [] } });
+  res.status(404).json({
+    success: false,
+    error: {
+      code: 'ERR_NOT_FOUND',
+      message: 'مسیر مورد نظر یافت نشد',
+      details: [],
+      timestamp: new Date().toISOString()
+    }
+  });
 });
 
-app.listen(config.port, () => console.log(`Invoice Service running on port ${config.port}`));
+// Error handler
+app.use(errorHandler);
+
+// Event handlers
+const setupEventHandlers = () => {
+  const { invoiceService } = require('./services');
+
+  // Handle order completed - create instant invoice
+  eventSubscriber.registerHandler('order.completed', async (data) => {
+    logger.info('سفارش تکمیل شد - ایجاد فاکتور', { orderId: data.orderId });
+    try {
+      await invoiceService.createFromOrder({
+        orderId: data.orderId,
+        orderNumber: data.orderNumber,
+        userId: data.userId,
+        companyId: data.companyId,
+        items: data.items || [],
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        customerAddress: data.customerAddress
+      });
+    } catch (error) {
+      logger.error('خطا در ایجاد فاکتور از سفارش', { error: error.message });
+    }
+  });
+
+  // Handle payment completed - mark invoice as paid
+  eventSubscriber.registerHandler('payment.completed', async (data) => {
+    logger.info('پرداخت تکمیل شد', { invoiceId: data.invoiceId });
+    try {
+      if (data.invoiceId) {
+        await invoiceService.updateStatus(data.invoiceId, 'paid');
+      }
+    } catch (error) {
+      logger.error('خطا در به‌روزرسانی وضعیت فاکتور', { error: error.message });
+    }
+  });
+};
+
+// Start server
+const startServer = async () => {
+  try {
+    // Connect to PostgreSQL
+    await connectDB();
+
+    // Connect to RabbitMQ
+    await eventPublisher.connect();
+    await eventSubscriber.connect();
+    
+    // Setup event handlers
+    setupEventHandlers();
+
+    // Start listening
+    app.listen(config.port, () => {
+      logger.info(`🧾 Invoice Service در حال اجرا روی پورت ${config.port}`);
+      logger.info(`📚 مستندات API: http://localhost:${config.port}/api-docs`);
+      logger.info(`❤️  Health Check: http://localhost:${config.port}/health`);
+      logger.info(`🌍 محیط: ${config.env}`);
+    });
+  } catch (error) {
+    logger.error('خطا در راه‌اندازی سرور', { error: error.message });
+    process.exit(1);
+  }
+};
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('دریافت سیگنال SIGTERM، در حال خاموش شدن...');
+  await eventPublisher.close();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  logger.info('دریافت سیگنال SIGINT، در حال خاموش شدن...');
+  await eventPublisher.close();
+  process.exit(0);
+});
+
+startServer();
+
 module.exports = app;

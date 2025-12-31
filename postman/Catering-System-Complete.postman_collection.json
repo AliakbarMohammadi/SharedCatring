@@ -1,0 +1,87 @@
+{
+  "info": {
+    "name": "Catering System - Complete API Tests",
+    "description": "تست کامل سیستم کترینگ سازمانی - ۱۳ سرویس",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "authService", "value": "http://localhost:3001" },
+    { "key": "identityService", "value": "http://localhost:3002" },
+    { "key": "userService", "value": "http://localhost:3003" },
+    { "key": "companyService", "value": "http://localhost:3004" },
+    { "key": "menuService", "value": "http://localhost:3005" },
+    { "key": "orderService", "value": "http://localhost:3006" },
+    { "key": "invoiceService", "value": "http://localhost:3007" },
+    { "key": "paymentService", "value": "http://localhost:3008" },
+    { "key": "walletService", "value": "http://localhost:3009" },
+    { "key": "notificationService", "value": "http://localhost:3010" },
+    { "key": "reportingService", "value": "http://localhost:3011" },
+    { "key": "fileService", "value": "http://localhost:3012" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "companyId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "invoiceId", "value": "" },
+    { "key": "paymentId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Health Checks - All Services",
+      "item": [
+        { "name": "API Gateway Health", "request": { "method": "GET", "url": "{{baseUrl}}/health" } },
+        { "name": "Auth Service Health", "request": { "method": "GET", "url": "{{authService}}/health" } },
+        { "name": "Identity Service Health", "request": { "method": "GET", "url": "{{identityService}}/health" } },
+        { "name": "User Service Health", "request": { "method": "GET", "url": "{{userService}}/health" } },
+        { "name": "Company Service Health", "request": { "method": "GET", "url": "{{companyService}}/health" } },
+        { "name": "Menu Service Health", "request": { "method": "GET", "url": "{{menuService}}/health" } },
+        { "name": "Order Service Health", "request": { "method": "GET", "url": "{{orderService}}/health" } },
+        { "name": "Invoice Service Health", "request": { "method": "GET", "url": "{{invoiceService}}/health" } },
+        { "name": "Payment Service Health", "request": { "method": "GET", "url": "{{paymentService}}/health" } },
+        { "name": "Wallet Service Health", "request": { "method": "GET", "url": "{{walletService}}/health" } },
+        { "name": "Notification Service Health", "request": { "method": "GET", "url": "{{notificationService}}/health" } },
+        { "name": "Reporting Service Health", "request": { "method": "GET", "url": "{{reportingService}}/health" } },
+        { "name": "File Service Health", "request": { "method": "GET", "url": "{{fileService}}/health" } }
+      ]
+    },
+    {
+      "name": "1. Auth Service (3001)",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (pm.response.code === 201) {",
+            "  var json = pm.response.json();",
+            "  pm.collectionVariables.set('userId', json.data.userId);",
+            "  pm.test('User registered', () => pm.expect(json.success).to.be.true);",
+            "}"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "url": "{{authService}}/api/v1/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test{{$timestamp}}@example.com\",\n  \"phone\": \"0912{{$randomInt}}\",\n  \"password\": \"Test@123456\",\n  \"firstName\": \"تست\",\n  \"lastName\": \"کاربر\"\n}" }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.success && json.data) {",
+            "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+            "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+            "  pm.test('Login successful', () => pm.expect(json.data.accessToken).to.be.a('string'));",
+            "}"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "url": "{{authService}}/api/v1/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Test@123456\"\n}" }
+          }
+        }
+      ]
+    }
+  ]
+}

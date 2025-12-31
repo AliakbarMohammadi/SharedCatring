@@ -1,0 +1,23 @@
+{
+  "name": "catering-integration-tests",
+  "version": "1.0.0",
+  "description": "تست‌های یکپارچگی سیستم کترینگ",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --runInBand --forceExit",
+    "test:verbose": "jest --runInBand --forceExit --verbose",
+    "test:flow1": "jest --runInBand --forceExit flows/01-user-registration.test.js",
+    "test:flow2": "jest --runInBand --forceExit flows/02-company-onboarding.test.js",
+    "test:flow3": "jest --runInBand --forceExit flows/03-order-payment.test.js",
+    "test:flow4": "jest --runInBand --forceExit flows/04-order-lifecycle.test.js",
+    "test:flow5": "jest --runInBand --forceExit flows/05-cancellation-refund.test.js",
+    "test:health": "jest --runInBand --forceExit health/services-health.test.js",
+    "test:events": "jest --runInBand --forceExit events/event-flow.test.js",
+    "smoke": "node smoke-test.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "jest": "^29.7.0",
+    "uuid": "^9.0.1"
+  }
+}

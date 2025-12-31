@@ -130,6 +130,21 @@ class UserController {
       next(error);
     }
   }
+
+  async updatePassword(req, res, next) {
+    try {
+      const { passwordHash } = req.body;
+      await userService.updatePassword(req.params.id, passwordHash);
+
+      res.json({
+        success: true,
+        data: null,
+        message: 'رمز عبور با موفقیت تغییر کرد'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new UserController();

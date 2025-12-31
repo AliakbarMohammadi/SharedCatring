@@ -3,27 +3,27 @@ require('dotenv').config();
 module.exports = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT, 10) || 3006,
+  serviceName: process.env.SERVICE_NAME || 'order-service',
   
   database: {
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: parseInt(process.env.POSTGRES_PORT, 10) || 5432,
-    username: process.env.POSTGRES_USER || 'catering_user',
-    password: process.env.POSTGRES_PASSWORD || 'catering_pass_123',
-    database: process.env.POSTGRES_DB || 'order_db',
-    dialect: 'postgres',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
-    pool: {
-      max: 10,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
-    }
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT, 10) || 5432,
+    name: process.env.DB_NAME || 'order_db',
+    user: process.env.DB_USER || 'catering_user',
+    password: process.env.DB_PASSWORD || 'catering_pass_123'
   },
-
+  
   rabbitmq: {
-    host: process.env.RABBITMQ_HOST || 'localhost',
-    port: parseInt(process.env.RABBITMQ_PORT, 10) || 5672,
-    user: process.env.RABBITMQ_USER || 'guest',
-    password: process.env.RABBITMQ_PASSWORD || 'guest'
+    url: process.env.RABBITMQ_URL || 'amqp://localhost:5672'
+  },
+  
+  jwt: {
+    secret: process.env.JWT_SECRET || 'your-secret-key'
+  },
+  
+  services: {
+    menu: process.env.MENU_SERVICE_URL || 'http://localhost:3005',
+    wallet: process.env.WALLET_SERVICE_URL || 'http://localhost:3009',
+    company: process.env.COMPANY_SERVICE_URL || 'http://localhost:3004'
   }
 };
