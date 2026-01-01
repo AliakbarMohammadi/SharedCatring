@@ -18,13 +18,17 @@ const createUserSchema = Joi.object({
   email: Joi.string().email().required().label('ایمیل').messages(messages),
   phone: Joi.string().pattern(phonePattern).optional().label('شماره موبایل')
     .messages({ ...messages, 'string.pattern.base': 'شماره موبایل نامعتبر است' }),
-  password: Joi.string().min(8).max(128).pattern(passwordPattern).required().label('رمز عبور')
+  // password: plain text password (validated)
+  password: Joi.string().min(8).max(128).pattern(passwordPattern).label('رمز عبور')
     .messages({ ...messages, 'string.pattern.base': 'رمز عبور باید حداقل ۸ کاراکتر و شامل حروف بزرگ، کوچک و عدد باشد' }),
+  // passwordHash: pre-hashed password from auth-service (no validation needed)
+  passwordHash: Joi.string().max(256).label('رمز عبور هش شده'),
   firstName: Joi.string().max(100).optional().label('نام').messages(messages),
   lastName: Joi.string().max(100).optional().label('نام خانوادگی').messages(messages),
   roleId: Joi.string().uuid().optional().label('نقش').messages(messages),
+  role: Joi.string().optional().label('نام نقش'),
   companyId: Joi.string().uuid().optional().label('شرکت').messages(messages)
-});
+}).or('password', 'passwordHash'); // Either password or passwordHash is required
 
 const updateUserSchema = Joi.object({
   email: Joi.string().email().optional().label('ایمیل').messages(messages),

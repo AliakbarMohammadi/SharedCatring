@@ -56,6 +56,18 @@ const registerSchema = Joi.object({
       'string.pattern.base': 'رمز عبور باید حداقل ۸ کاراکتر و شامل حروف بزرگ، کوچک و عدد باشد'
     }),
   
+  firstName: Joi.string()
+    .max(100)
+    .optional()
+    .label('نام')
+    .messages(messages),
+  
+  lastName: Joi.string()
+    .max(100)
+    .optional()
+    .label('نام خانوادگی')
+    .messages(messages),
+  
   role: Joi.string()
     .valid('personal_user', 'company_admin', 'company_employee')
     .default('personal_user')

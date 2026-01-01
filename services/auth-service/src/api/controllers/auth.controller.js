@@ -28,7 +28,7 @@ class AuthController {
       const user = await identityService.createUser({
         email,
         phone,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         firstName,
         lastName,
         role

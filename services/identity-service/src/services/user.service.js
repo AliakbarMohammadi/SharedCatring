@@ -6,7 +6,7 @@ const { Op } = require('sequelize');
 
 class UserService {
   async create(userData) {
-    const { email, phone, password, firstName, lastName, roleId, companyId } = userData;
+    const { email, phone, password, passwordHash: providedHash, firstName, lastName, roleId, role: roleName, companyId } = userData;
 
     // Check if email exists
     const existingEmail = await User.findOne({ where: { email } });
@@ -22,29 +22,42 @@ class UserService {
       }
     }
 
+    // Resolve roleId from roleName if provided
+    let finalRoleId = roleId;
+    if (!finalRoleId && roleName) {
+      const role = await Role.findOne({ where: { name: roleName } });
+      if (role) {
+        finalRoleId = role.id;
+      }
+    }
+
     // Validate role if provided
-    if (roleId) {
-      const role = await Role.findByPk(roleId);
+    if (finalRoleId) {
+      const role = await Role.findByPk(finalRoleId);
       if (!role) {
         throw { statusCode: 404, code: 'ERR_ROLE_NOT_FOUND', message: 'نقش مورد نظر یافت نشد' };
       }
     }
 
-    // Hash password if not already hashed (bcrypt hashes start with $2a$ or $2b$)
-    let passwordHash;
-    if (password && password.startsWith('$2')) {
-      passwordHash = password; // Already hashed
+    // Use provided hash or hash the password
+    let finalPasswordHash;
+    if (providedHash) {
+      finalPasswordHash = providedHash; // Pre-hashed from auth-service
+    } else if (password && password.startsWith('$2')) {
+      finalPasswordHash = password; // Already hashed
+    } else if (password) {
+      finalPasswordHash = await bcrypt.hash(password, 12);
     } else {
-      passwordHash = await bcrypt.hash(password, 12);
+      throw { statusCode: 400, code: 'ERR_PASSWORD_REQUIRED', message: 'رمز عبور الزامی است' };
     }
 
     const user = await User.create({
       email,
       phone,
-      passwordHash,
+      passwordHash: finalPasswordHash,
       firstName,
       lastName,
-      roleId,
+      roleId: finalRoleId,
       companyId,
       status: 'pending'
     });
