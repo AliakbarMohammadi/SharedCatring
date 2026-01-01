@@ -65,13 +65,23 @@ export const userService = {
   },
 
   /**
-   * Update user profile
-   * به‌روزرسانی پروفایل کاربر
+   * Update user profile (partial update - PATCH semantics)
+   * به‌روزرسانی پروفایل کاربر - فقط فیلدهای ارسال شده تغییر می‌کنند
    */
   async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
+    // Only send fields that are actually provided (not undefined)
+    // فقط فیلدهایی که مقدار دارند ارسال می‌شوند
+    const cleanData: Partial<UpdateProfileRequest> = {};
+    
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        cleanData[key as keyof UpdateProfileRequest] = value;
+      }
+    }
+
     const response = await apiClient.patch<ApiResponse<UserProfile>>(
       '/users/profile',
-      data
+      cleanData
     );
     return response.data.data;
   },

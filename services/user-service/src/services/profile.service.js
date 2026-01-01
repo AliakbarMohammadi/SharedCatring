@@ -11,14 +11,32 @@ class ProfileService {
     return this.format(profile);
   }
 
+  /**
+   * Update profile - PATCH semantics (partial update)
+   * به‌روزرسانی پروفایل - فقط فیلدهای ارسال شده تغییر می‌کنند
+   */
   async updateProfile(userId, data) {
     let profile = await profileRepository.findByUserId(userId);
-    if (!profile) {
-      profile = await profileRepository.create({ userId, ...data });
-    } else {
-      profile = await profileRepository.update(userId, data);
+    
+    // Build update object with only provided fields (PATCH semantics)
+    // فقط فیلدهایی که ارسال شده‌اند آپدیت می‌شوند
+    const fieldsToUpdate = {};
+    const allowedFields = ['firstName', 'lastName', 'nationalCode', 'avatarUrl', 'birthDate', 'gender', 'phone'];
+    
+    for (const field of allowedFields) {
+      if (data.hasOwnProperty(field)) {
+        fieldsToUpdate[field] = data[field];
+      }
     }
-    logger.info('پروفایل ویرایش شد', { userId });
+
+    if (!profile) {
+      profile = await profileRepository.create({ userId, ...fieldsToUpdate });
+      logger.info('پروفایل جدید ایجاد شد', { userId, fields: Object.keys(fieldsToUpdate) });
+    } else if (Object.keys(fieldsToUpdate).length > 0) {
+      profile = await profileRepository.update(userId, fieldsToUpdate);
+      logger.info('پروفایل به‌روزرسانی شد', { userId, updatedFields: Object.keys(fieldsToUpdate) });
+    }
+    
     return this.format(profile);
   }
 

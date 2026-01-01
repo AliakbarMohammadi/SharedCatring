@@ -13,6 +13,7 @@ router.get('/', userController.findAll);
 router.get('/by-email/:email', userController.findByEmailInternal);
 router.get('/:id', userController.findById);
 router.put('/:id', validateUpdateUser, userController.update);
+router.patch('/:id', validateUpdateUser, userController.update); // PATCH for partial updates
 router.delete('/:id', userController.delete);
 router.patch('/:id/status', validateUpdateStatus, userController.updateStatus);
 router.post('/:id/assign-role', validateAssignRole, userController.assignRole);

@@ -150,39 +150,67 @@ class UserService {
     };
   }
 
+  /**
+   * Update user - PATCH semantics (partial update)
+   * به‌روزرسانی کاربر - فقط فیلدهای ارسال شده تغییر می‌کنند
+   * @param {string} id - User ID
+   * @param {Object} updateData - Fields to update (only provided fields will be changed)
+   */
   async update(id, updateData) {
     const user = await User.findByPk(id);
     if (!user) {
       throw { statusCode: 404, code: 'ERR_USER_NOT_FOUND', message: 'کاربر یافت نشد' };
     }
 
-    const { email, phone, firstName, lastName, companyId } = updateData;
+    // Build update object with only provided fields (PATCH semantics)
+    // فقط فیلدهایی که ارسال شده‌اند آپدیت می‌شوند
+    const fieldsToUpdate = {};
+    const allowedFields = ['email', 'phone', 'firstName', 'lastName', 'companyId', 'nationalId', 'birthDate', 'gender'];
+    
+    for (const field of allowedFields) {
+      // Only include field if it was explicitly provided in updateData
+      if (updateData.hasOwnProperty(field)) {
+        fieldsToUpdate[field] = updateData[field];
+      }
+    }
 
-    // Check email uniqueness
-    if (email && email !== user.email) {
-      const existingEmail = await User.findOne({ where: { email } });
+    // If no fields to update, return current user
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      return this.formatUser(user);
+    }
+
+    // Check email uniqueness if email is being updated
+    if (fieldsToUpdate.email !== undefined && fieldsToUpdate.email !== user.email) {
+      const existingEmail = await User.findOne({ where: { email: fieldsToUpdate.email } });
       if (existingEmail) {
         throw { statusCode: 409, code: 'ERR_EMAIL_EXISTS', message: 'این ایمیل قبلاً ثبت شده است' };
       }
     }
 
-    // Check phone uniqueness
-    if (phone && phone !== user.phone) {
-      const existingPhone = await User.findOne({ where: { phone } });
+    // Check phone uniqueness if phone is being updated
+    if (fieldsToUpdate.phone !== undefined && fieldsToUpdate.phone !== user.phone) {
+      const existingPhone = await User.findOne({ where: { phone: fieldsToUpdate.phone } });
       if (existingPhone) {
         throw { statusCode: 409, code: 'ERR_PHONE_EXISTS', message: 'این شماره موبایل قبلاً ثبت شده است' };
       }
     }
 
-    await user.update({ email, phone, firstName, lastName, companyId });
+    // Update only the provided fields
+    await user.update(fieldsToUpdate);
 
-    // Publish event
+    // Reload user with role
+    await user.reload({ include: [{ model: Role, as: 'role' }] });
+
+    // Publish event with only changed fields
     await eventPublisher.publish('identity.user.updated', {
       userId: user.id,
-      changes: updateData
+      changes: fieldsToUpdate
     });
 
-    logger.info('کاربر ویرایش شد', { userId: user.id });
+    logger.info('اطلاعات کاربر به‌روزرسانی شد', { 
+      userId: user.id, 
+      updatedFields: Object.keys(fieldsToUpdate) 
+    });
 
     return this.formatUser(user);
   }

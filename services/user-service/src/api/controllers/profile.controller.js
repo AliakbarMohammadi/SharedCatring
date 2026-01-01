@@ -13,7 +13,11 @@ class ProfileController {
   async updateProfile(req, res, next) {
     try {
       const profile = await profileService.updateProfile(req.userId, req.body);
-      res.json({ success: true, data: profile, message: 'پروفایل با موفقیت ویرایش شد' });
+      res.json({ 
+        success: true, 
+        data: profile, 
+        message: 'اطلاعات کاربر با موفقیت به‌روزرسانی شد' 
+      });
     } catch (error) {
       next(error);
     }

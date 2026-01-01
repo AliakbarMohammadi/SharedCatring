@@ -88,7 +88,7 @@ const authLimiter = createRateLimiter({
  */
 const apiLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 60, // 60 requests per minute
+  max: 6000, // 60 requests per minute
   keyPrefix: 'rl:api:'
 });
 

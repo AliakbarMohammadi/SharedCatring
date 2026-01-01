@@ -60,7 +60,7 @@ class UserController {
       res.json({
         success: true,
         data: user,
-        message: 'کاربر با موفقیت ویرایش شد'
+        message: 'اطلاعات کاربر با موفقیت به‌روزرسانی شد'
       });
     } catch (error) {
       next(error);
