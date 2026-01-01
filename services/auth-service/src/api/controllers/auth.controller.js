@@ -1,20 +1,13 @@
 const { authService, tokenService } = require('../../services');
+const { identityService } = require('../../utils/serviceClient');
 const logger = require('../../utils/logger');
 
-// Mock user data for testing
-const mockUsers = {
-  'test@example.com': {
-    id: '550e8400-e29b-41d4-a716-446655440000',
-    email: 'test@example.com',
-    password: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', // Test@123456
-    firstName: 'کاربر',
-    lastName: 'تست',
-    role: 'personal_user',
-    isActive: true,
-    companyId: null
-  }
-};
-
+/**
+ * Auth Controller - Production Ready
+ * کنترلر احراز هویت - آماده تولید
+ * 
+ * تمام mock ها حذف شده و از سرویس Identity استفاده می‌شود
+ */
 class AuthController {
   /**
    * Register new user
@@ -22,48 +15,36 @@ class AuthController {
    */
   async register(req, res, next) {
     try {
-      const { email, phone, password } = req.body;
+      const { email, phone, password, firstName, lastName, role = 'personal_user' } = req.body;
       const requestInfo = {
         ip: req.ip,
         userAgent: req.get('user-agent')
       };
 
-      // Check if user already exists (mock)
-      if (mockUsers[email]) {
-        throw {
-          statusCode: 409,
-          code: 'ERR_USER_EXISTS',
-          message: 'این ایمیل قبلاً ثبت شده است'
-        };
-      }
-
-      // Hash password and create mock user
+      // Hash password
       const hashedPassword = await authService.hashPassword(password);
-      const userId = require('uuid').v4();
-      
-      mockUsers[email] = {
-        id: userId,
+
+      // Create user in Identity Service (real database call)
+      const user = await identityService.createUser({
         email,
         phone,
         password: hashedPassword,
-        firstName: null,
-        lastName: null,
-        role: 'personal_user',
-        isActive: true,
-        companyId: null
-      };
+        firstName,
+        lastName,
+        role
+      });
 
       // Generate verification token
       const verifyToken = tokenService.generateRandomToken();
-      await tokenService.saveVerifyToken(userId, verifyToken);
+      await tokenService.saveVerifyToken(user.id, verifyToken);
 
-      logger.info('کاربر جدید ثبت‌نام کرد', { userId, email });
+      logger.info('کاربر جدید ثبت‌نام کرد', { userId: user.id, email });
 
       res.status(201).json({
         success: true,
         data: {
-          userId,
-          email
+          userId: user.id,
+          email: user.email
         },
         message: 'ثبت‌نام با موفقیت انجام شد. لطفاً ایمیل خود را تأیید کنید'
       });
@@ -84,8 +65,8 @@ class AuthController {
         userAgent: req.get('user-agent')
       };
 
-      // Get mock user
-      const user = mockUsers[email];
+      // Get user from Identity Service (real database call)
+      const user = await identityService.getUserByEmail(email);
       
       if (!user) {
         throw {
@@ -95,9 +76,21 @@ class AuthController {
         };
       }
 
+      // Map identity service response to auth service format
+      const userForAuth = {
+        id: user.id,
+        email: user.email,
+        password: user.passwordHash,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role?.name || 'personal_user',
+        isActive: user.status === 'active',
+        companyId: user.companyId
+      };
+
       const result = await authService.login(
         { email, password },
-        user,
+        userForAuth,
         requestInfo
       );
 
@@ -164,8 +157,8 @@ class AuthController {
     try {
       const { email } = req.body;
 
-      // Get mock user
-      const user = mockUsers[email];
+      // Get user from Identity Service (real database call)
+      const user = await identityService.getUserByEmail(email);
 
       // Always return success to prevent email enumeration
       if (user) {
@@ -191,6 +184,12 @@ class AuthController {
       const { token, password } = req.body;
 
       const result = await authService.resetPassword(token, password);
+
+      // Update password in Identity Service
+      if (result.userId) {
+        const hashedPassword = await authService.hashPassword(password);
+        await identityService.updateUserPassword(result.userId, hashedPassword);
+      }
 
       res.json({
         success: true,

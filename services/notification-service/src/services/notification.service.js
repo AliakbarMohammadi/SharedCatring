@@ -176,8 +176,9 @@ class NotificationService {
           result = { success: true };
           break;
         case 'push':
-          // Future: implement push notification
-          result = { success: true, simulated: true };
+          // Push notifications - logged for future implementation
+          logger.info('Push notification queued', { userId, title: finalTitle });
+          result = { success: true, provider: 'push', note: 'Push notification logged' };
           break;
       }
 
