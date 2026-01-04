@@ -14,10 +14,9 @@ const reservationItemSchema = Joi.object({
   date: Joi.date().required().label('تاریخ'),
   mealType: Joi.string().valid('breakfast', 'lunch', 'dinner').required().label('نوع وعده')
     .messages({ ...messages, 'any.only': 'نوع وعده باید breakfast، lunch یا dinner باشد' }),
-  foodId: Joi.string().uuid().required().label('شناسه غذا'),
-  foodName: Joi.string().max(255).optional().label('نام غذا'),
-  quantity: Joi.number().integer().min(1).optional().default(1).label('تعداد'),
-  unitPrice: Joi.number().min(0).optional().label('قیمت واحد')
+  foodId: Joi.string().min(1).max(50).required().label('شناسه غذا'),
+  quantity: Joi.number().integer().min(1).optional().default(1).label('تعداد')
+  // foodName and unitPrice will be fetched from Menu Service
 });
 
 const createReservationSchema = Joi.object({

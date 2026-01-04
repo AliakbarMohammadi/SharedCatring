@@ -1,9 +1,35 @@
+const jwt = require('jsonwebtoken');
+const config = require('../../config');
+
 const extractUser = (req, res, next) => {
-  req.user = {
-    id: req.headers['x-user-id'] || null,
-    role: req.headers['x-user-role'] || 'user',
-    companyId: req.headers['x-company-id'] || null
-  };
+  // First try to get user from headers (set by API Gateway)
+  if (req.headers['x-user-id']) {
+    req.user = {
+      id: req.headers['x-user-id'],
+      role: req.headers['x-user-role'] || 'user',
+      companyId: req.headers['x-company-id'] || null
+    };
+    return next();
+  }
+
+  // Otherwise, try to verify JWT token directly
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const decoded = jwt.verify(token, config.jwt.secret);
+      req.user = {
+        id: decoded.userId,
+        role: decoded.role || 'user',
+        companyId: decoded.companyId || null
+      };
+    } catch (error) {
+      req.user = { id: null, role: 'user', companyId: null };
+    }
+  } else {
+    req.user = { id: null, role: 'user', companyId: null };
+  }
+  
   next();
 };
 

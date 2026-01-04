@@ -1,10 +1,16 @@
 const { Order, OrderItem, OrderStatusHistory, Cart, CartItem } = require('../models');
 const { generateOrderNumber, getStartOfDay, getEndOfDay, orderStatusLabels } = require('../utils/helpers');
+const menuClient = require('../utils/menuClient');
 const eventPublisher = require('../events/publisher');
 const logger = require('../utils/logger');
+const config = require('../config');
 const { Op } = require('sequelize');
 
 class OrderService {
+  /**
+   * Create a new order
+   * ایجاد سفارش جدید با پشتیبانی از Graceful Degradation
+   */
   async create(userId, orderData) {
     const {
       companyId,
@@ -19,20 +25,88 @@ class OrderService {
       notes
     } = orderData;
 
-    // Calculate totals
+    // Build fallback map from client-provided data
+    const fallbackMap = new Map();
+    items.forEach(item => {
+      if (item.foodName && item.unitPrice) {
+        fallbackMap.set(item.foodId, {
+          id: item.foodId,
+          name: item.foodName,
+          price: parseFloat(item.unitPrice),
+          isAvailable: true // Assume available when using fallback
+        });
+      }
+    });
+
+    // Try to fetch food info from Menu Service
+    let foodMap = new Map();
+    let menuServiceAvailable = true;
+    
+    try {
+      const foodIds = items.map(item => item.foodId);
+      foodMap = await menuClient.getFoodsByIds(foodIds, fallbackMap);
+    } catch (error) {
+      menuServiceAvailable = false;
+      logger.warn('Menu Service در دسترس نیست، استفاده از داده‌های fallback', {
+        error: error.message,
+        itemCount: items.length
+      });
+      
+      // Use fallback data if available
+      foodMap = fallbackMap;
+    }
+
+    // Validate items - with graceful handling
+    const orderItems = [];
     let subtotal = 0;
-    const orderItems = items.map(item => {
-      const totalPrice = parseFloat(item.unitPrice) * item.quantity;
+    const warnings = [];
+
+    for (const item of items) {
+      let food = foodMap.get(item.foodId);
+      
+      // If no food data from Menu Service, try to use client-provided data
+      if (!food && item.foodName && item.unitPrice) {
+        food = {
+          id: item.foodId,
+          name: item.foodName,
+          price: parseFloat(item.unitPrice),
+          isAvailable: true
+        };
+        warnings.push(`اطلاعات غذای "${item.foodName}" از کلاینت استفاده شد (Menu Service در دسترس نبود)`);
+        logger.warn('استفاده از داده‌های کلاینت برای غذا', { foodId: item.foodId, foodName: item.foodName });
+      }
+
+      // If still no food data, throw error
+      if (!food) {
+        throw {
+          statusCode: 404,
+          code: 'ERR_FOOD_NOT_FOUND',
+          message: `غذا با شناسه ${item.foodId} یافت نشد. لطفاً نام و قیمت غذا را نیز ارسال کنید.`
+        };
+      }
+
+      // Check availability only if Menu Service was available
+      if (menuServiceAvailable && !food.isAvailable) {
+        throw {
+          statusCode: 400,
+          code: 'ERR_FOOD_UNAVAILABLE',
+          message: `غذای "${food.name}" در حال حاضر موجود نیست`
+        };
+      }
+
+      // Calculate item total
+      const totalPrice = food.price * item.quantity;
       subtotal += totalPrice;
-      return {
+
+      orderItems.push({
         foodId: item.foodId,
-        foodName: item.foodName,
+        foodName: food.name,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
+        unitPrice: food.price,
         totalPrice,
         notes: item.notes
-      };
-    });
+      });
+    }
 
     // TODO: Apply promo code discount
     let discountAmount = 0;
@@ -50,6 +124,7 @@ class OrderService {
     const userPayable = totalAmount - subsidyAmount;
     const companyPayable = subsidyAmount;
 
+    // Create order
     const order = await Order.create({
       orderNumber: generateOrderNumber(),
       userId,
@@ -83,7 +158,7 @@ class OrderService {
       orderId: order.id,
       status: 'pending',
       changedBy: userId,
-      notes: 'سفارش ثبت شد'
+      notes: menuServiceAvailable ? 'سفارش ثبت شد' : 'سفارش ثبت شد (بدون تأیید از سرویس منو)'
     });
 
     // Clear cart if items came from cart
@@ -94,18 +169,35 @@ class OrderService {
       }
     }
 
-    // Publish event
-    await eventPublisher.publish('order.created', {
-      orderId: order.id,
+    // Publish event (don't fail order if event publishing fails)
+    try {
+      await eventPublisher.publish('order.created', {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userId,
+        totalAmount,
+        deliveryDate,
+        menuServiceVerified: menuServiceAvailable
+      });
+    } catch (eventError) {
+      logger.error('خطا در ارسال رویداد سفارش', { error: eventError.message, orderId: order.id });
+    }
+
+    logger.info('سفارش ایجاد شد', { 
+      orderId: order.id, 
       orderNumber: order.orderNumber,
-      userId,
-      totalAmount,
-      deliveryDate
+      menuServiceAvailable,
+      warnings: warnings.length > 0 ? warnings : undefined
     });
 
-    logger.info('سفارش ایجاد شد', { orderId: order.id, orderNumber: order.orderNumber });
+    const result = await this.findById(order.id);
+    
+    // Add warnings to response if any
+    if (warnings.length > 0) {
+      result.warnings = warnings;
+    }
 
-    return this.findById(order.id);
+    return result;
   }
 
   async findAll(userId, options = {}) {
@@ -221,13 +313,17 @@ class OrderService {
       notes: notes || `وضعیت به "${orderStatusLabels[status]}" تغییر کرد`
     });
 
-    // Publish event
-    await eventPublisher.publish(`order.${status}`, {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      userId: order.userId,
-      status
-    });
+    // Publish event (don't fail if event publishing fails)
+    try {
+      await eventPublisher.publish(`order.${status}`, {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userId: order.userId,
+        status
+      });
+    } catch (eventError) {
+      logger.error('خطا در ارسال رویداد تغییر وضعیت', { error: eventError.message, orderId: id });
+    }
 
     logger.info('وضعیت سفارش تغییر کرد', { orderId: id, status });
 
@@ -261,12 +357,16 @@ class OrderService {
       notes: reason || 'سفارش لغو شد'
     });
 
-    await eventPublisher.publish('order.cancelled', {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      userId: order.userId,
-      reason
-    });
+    try {
+      await eventPublisher.publish('order.cancelled', {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userId: order.userId,
+        reason
+      });
+    } catch (eventError) {
+      logger.error('خطا در ارسال رویداد لغو سفارش', { error: eventError.message, orderId: id });
+    }
 
     logger.info('سفارش لغو شد', { orderId: id, reason });
 
@@ -282,7 +382,7 @@ class OrderService {
       throw { statusCode: 404, code: 'ERR_ORDER_NOT_FOUND', message: 'سفارش یافت نشد' };
     }
 
-    // Create new order with same items
+    // Create new order with same items (include fallback data)
     const newOrderData = {
       companyId: originalOrder.companyId,
       employeeId: originalOrder.employeeId,
@@ -291,7 +391,7 @@ class OrderService {
         foodId: item.foodId,
         foodName: item.foodName,
         quantity: item.quantity,
-        unitPrice: item.unitPrice
+        unitPrice: parseFloat(item.unitPrice)
       })),
       deliveryDate: new Date().toISOString().split('T')[0], // Today
       deliveryAddress: originalOrder.deliveryAddress,

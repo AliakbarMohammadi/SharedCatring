@@ -14,7 +14,7 @@ const OrderItem = sequelize.define('OrderItem', {
     references: { model: 'orders', key: 'id' }
   },
   foodId: {
-    type: DataTypes.UUID,
+    type: DataTypes.STRING(50),
     allowNull: false,
     field: 'food_id'
   },

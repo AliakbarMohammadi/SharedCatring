@@ -1,5 +1,6 @@
 const { WeeklyReservation, ReservationItem } = require('../models');
 const { getWeekStart, mealTypeLabels } = require('../utils/helpers');
+const menuClient = require('../utils/menuClient');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 
@@ -24,10 +25,33 @@ class ReservationService {
       };
     }
 
-    // Calculate total
+    // Fetch food info from Menu Service
+    const foodIds = [...new Set(items.map(item => item.foodId))];
+    const foodMap = await menuClient.getFoodsByIds(foodIds);
+
+    // Validate all foods exist
+    for (const item of items) {
+      if (!foodMap.has(item.foodId)) {
+        throw {
+          statusCode: 404,
+          code: 'ERR_FOOD_NOT_FOUND',
+          message: `غذا با شناسه ${item.foodId} یافت نشد`
+        };
+      }
+    }
+
+    // Calculate total using prices from Menu Service
     let totalAmount = 0;
-    items.forEach(item => {
-      totalAmount += (parseFloat(item.unitPrice) || 0) * (item.quantity || 1);
+    const enrichedItems = items.map(item => {
+      const food = foodMap.get(item.foodId);
+      const quantity = item.quantity || 1;
+      totalAmount += food.price * quantity;
+      return {
+        ...item,
+        foodName: food.name,
+        unitPrice: food.price,
+        quantity
+      };
     });
 
     const reservation = await WeeklyReservation.create({
@@ -39,14 +63,14 @@ class ReservationService {
     });
 
     // Create reservation items
-    for (const item of items) {
+    for (const item of enrichedItems) {
       await ReservationItem.create({
         reservationId: reservation.id,
         date: item.date,
         mealType: item.mealType,
         foodId: item.foodId,
         foodName: item.foodName,
-        quantity: item.quantity || 1,
+        quantity: item.quantity,
         unitPrice: item.unitPrice,
         status: 'scheduled'
       });
@@ -104,20 +128,38 @@ class ReservationService {
     const { items } = updateData;
 
     if (items) {
+      // Fetch food info from Menu Service
+      const foodIds = [...new Set(items.map(item => item.foodId))];
+      const foodMap = await menuClient.getFoodsByIds(foodIds);
+
+      // Validate all foods exist
+      for (const item of items) {
+        if (!foodMap.has(item.foodId)) {
+          throw {
+            statusCode: 404,
+            code: 'ERR_FOOD_NOT_FOUND',
+            message: `غذا با شناسه ${item.foodId} یافت نشد`
+          };
+        }
+      }
+
       // Delete existing items and recreate
       await ReservationItem.destroy({ where: { reservationId: id } });
 
       let totalAmount = 0;
       for (const item of items) {
-        totalAmount += (parseFloat(item.unitPrice) || 0) * (item.quantity || 1);
+        const food = foodMap.get(item.foodId);
+        const quantity = item.quantity || 1;
+        totalAmount += food.price * quantity;
+        
         await ReservationItem.create({
           reservationId: id,
           date: item.date,
           mealType: item.mealType,
           foodId: item.foodId,
-          foodName: item.foodName,
-          quantity: item.quantity || 1,
-          unitPrice: item.unitPrice,
+          foodName: food.name,
+          quantity,
+          unitPrice: food.price,
           status: 'scheduled'
         });
       }

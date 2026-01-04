@@ -11,11 +11,12 @@ const messages = {
 };
 
 const orderItemSchema = Joi.object({
-  foodId: Joi.string().uuid().required().label('شناسه غذا'),
-  foodName: Joi.string().max(255).required().label('نام غذا'),
+  foodId: Joi.string().min(1).max(50).required().label('شناسه غذا'),
   quantity: Joi.number().integer().min(1).required().label('تعداد'),
-  unitPrice: Joi.number().min(0).required().label('قیمت واحد'),
-  notes: Joi.string().max(500).optional().allow('').label('یادداشت')
+  notes: Joi.string().max(500).optional().allow('').label('یادداشت'),
+  // Optional fallback fields - used if Menu Service is unavailable
+  foodName: Joi.string().max(255).optional().label('نام غذا'),
+  unitPrice: Joi.number().min(0).optional().label('قیمت واحد')
 });
 
 const createOrderSchema = Joi.object({

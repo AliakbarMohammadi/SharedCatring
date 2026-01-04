@@ -174,9 +174,15 @@ export const paymentStatusLabels: Record<string, string> = {
  * دریافت برچسب نقش کاربر به فارسی
  */
 export const userRoleLabels: Record<string, string> = {
-  personal_user: 'کاربر شخصی',
-  corporate_user: 'کاربر سازمانی',
+  super_admin: 'مدیر ارشد سیستم',
+  catering_admin: 'مدیر کترینگ',
+  kitchen_staff: 'پرسنل آشپزخانه',
   company_admin: 'مدیر شرکت',
+  company_manager: 'مدیر واحد',
+  employee: 'کارمند',
+  personal_user: 'کاربر شخصی',
+  // Legacy roles
+  corporate_user: 'کاربر سازمانی',
   admin: 'مدیر سیستم',
 };
 

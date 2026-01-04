@@ -23,7 +23,7 @@ const ReservationItem = sequelize.define('ReservationItem', {
     field: 'meal_type'
   },
   foodId: {
-    type: DataTypes.UUID,
+    type: DataTypes.STRING(50),
     allowNull: false,
     field: 'food_id'
   },

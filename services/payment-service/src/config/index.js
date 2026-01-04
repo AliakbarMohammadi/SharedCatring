@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 module.exports = {
   env: process.env.NODE_ENV || 'development',
@@ -21,6 +22,12 @@ module.exports = {
     secret: process.env.JWT_SECRET || 'your-secret-key'
   },
   
+  services: {
+    wallet: process.env.WALLET_SERVICE_URL || 'http://localhost:3009'
+  },
+
+  internalApiKey: process.env.INTERNAL_API_KEY || 'internal-key',
+
   gateways: {
     default: process.env.DEFAULT_GATEWAY || 'zarinpal',
     zarinpal: {

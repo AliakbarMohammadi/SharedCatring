@@ -4,16 +4,18 @@ const messages = {
   'string.empty': '{#label} نمی‌تواند خالی باشد',
   'any.required': '{#label} الزامی است',
   'number.base': '{#label} باید عدد باشد',
-  'number.min': '{#label} باید حداقل {#limit} باشد',
-  'string.guid': '{#label} باید یک UUID معتبر باشد'
+  'number.min': '{#label} باید حداقل {#limit} باشد'
 };
 
+// foodId can be MongoDB ObjectId or UUID - accept any string
+// foodName and unitPrice are optional fallbacks if Menu Service is unavailable
 const addItemSchema = Joi.object({
-  foodId: Joi.string().uuid().required().label('شناسه غذا').messages(messages),
-  foodName: Joi.string().max(255).required().label('نام غذا').messages(messages),
+  foodId: Joi.string().min(1).max(50).required().label('شناسه غذا').messages(messages),
   quantity: Joi.number().integer().min(1).required().label('تعداد').messages(messages),
-  unitPrice: Joi.number().min(0).required().label('قیمت واحد').messages(messages),
-  notes: Joi.string().max(500).optional().allow('').label('یادداشت').messages(messages)
+  notes: Joi.string().max(500).optional().allow('').label('یادداشت').messages(messages),
+  // Optional fallback fields - used if Menu Service is unavailable
+  foodName: Joi.string().max(255).optional().label('نام غذا').messages(messages),
+  unitPrice: Joi.number().min(0).optional().label('قیمت واحد').messages(messages)
 });
 
 const updateItemSchema = Joi.object({

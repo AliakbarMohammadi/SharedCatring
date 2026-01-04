@@ -1,17 +1,50 @@
+const jwt = require('jsonwebtoken');
+const config = require('../../config');
+
 /**
- * Extract user info from headers (set by API Gateway)
+ * Extract user info from headers (set by API Gateway) or JWT token
+ * استخراج اطلاعات کاربر از هدرها یا توکن JWT
  */
 const extractUser = (req, res, next) => {
-  req.user = {
-    userId: req.headers['x-user-id'],
-    role: req.headers['x-user-role'],
-    companyId: req.headers['x-company-id']
-  };
+  // First check if API Gateway has set the headers
+  if (req.headers['x-user-id']) {
+    req.user = {
+      userId: req.headers['x-user-id'],
+      email: req.headers['x-user-email'],
+      role: req.headers['x-user-role'],
+      companyId: req.headers['x-company-id'] || null
+    };
+    return next();
+  }
+
+  // Otherwise, try to extract from JWT token
+  const authHeader = req.headers.authorization;
+  
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    try {
+      const decoded = jwt.verify(token, config.jwt.secret);
+      req.user = {
+        userId: decoded.userId || decoded.id,
+        email: decoded.email,
+        role: decoded.role,
+        companyId: decoded.companyId || null
+      };
+    } catch (error) {
+      // Token invalid or expired - user will be null
+      req.user = null;
+    }
+  } else {
+    req.user = null;
+  }
+  
   next();
 };
 
 /**
  * Require authentication
+ * احراز هویت الزامی
  */
 const requireAuth = (req, res, next) => {
   if (!req.user?.userId) {
@@ -30,6 +63,7 @@ const requireAuth = (req, res, next) => {
 
 /**
  * Require specific roles
+ * نیاز به نقش‌های خاص
  */
 const requireRole = (...roles) => {
   return (req, res, next) => {
@@ -50,16 +84,19 @@ const requireRole = (...roles) => {
 
 /**
  * Admin only
+ * فقط ادمین‌ها
  */
 const adminOnly = requireRole('super_admin', 'catering_admin');
 
 /**
  * Kitchen staff access
+ * دسترسی پرسنل آشپزخانه
  */
 const kitchenAccess = requireRole('super_admin', 'catering_admin', 'kitchen_staff');
 
 /**
  * Company admin access
+ * دسترسی مدیران شرکت
  */
 const companyAdminAccess = requireRole('super_admin', 'catering_admin', 'company_admin', 'company_manager');
 

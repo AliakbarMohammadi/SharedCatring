@@ -2,6 +2,7 @@ const { Payment } = require('../models');
 const { getGateway } = require('../gateways');
 const eventPublisher = require('../events/publisher');
 const config = require('../config');
+const walletClient = require('../utils/walletClient');
 const { generateTrackingCode, paymentStatusLabels, gatewayLabels } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
@@ -15,6 +16,7 @@ class PaymentService {
       amount,
       gateway = config.gateways.default,
       method = 'online',
+      balanceType = 'personal',
       description,
       metadata = {}
     } = paymentData;
@@ -36,12 +38,17 @@ class PaymentService {
       userId,
       amount,
       method,
-      gateway,
+      gateway: method === 'wallet' ? 'wallet' : gateway,
       trackingCode,
       description: description || 'پرداخت سفارش کترینگ',
       status: 'pending',
-      metadata
+      metadata: { ...metadata, balanceType }
     });
+
+    // Handle wallet payment
+    if (method === 'wallet') {
+      return this.processWalletPayment(payment, balanceType);
+    }
 
     // Get gateway and create payment
     const gatewayInstance = getGateway(gateway);
@@ -84,6 +91,99 @@ class PaymentService {
       payment: this.formatPayment(payment),
       paymentUrl: result.paymentUrl
     };
+  }
+
+  /**
+   * Process wallet payment - deduct directly from wallet
+   */
+  async processWalletPayment(payment, balanceType = 'personal') {
+    try {
+      // Check balance first
+      const balanceCheck = await walletClient.checkBalance(
+        payment.userId,
+        parseFloat(payment.amount),
+        balanceType
+      );
+
+      if (!balanceCheck.sufficient) {
+        await payment.update({
+          status: 'failed',
+          gatewayResponse: { error: 'insufficient_balance', ...balanceCheck }
+        });
+
+        throw {
+          statusCode: 400,
+          code: 'ERR_INSUFFICIENT_BALANCE',
+          message: `موجودی کیف پول کافی نیست. موجودی فعلی: ${balanceCheck.currentBalance.toLocaleString('fa-IR')} تومان، مبلغ مورد نیاز: ${parseFloat(payment.amount).toLocaleString('fa-IR')} تومان`
+        };
+      }
+
+      // Deduct from wallet
+      const deductResult = await walletClient.deduct(
+        payment.userId,
+        parseFloat(payment.amount),
+        balanceType,
+        'payment',
+        payment.id,
+        payment.description || 'پرداخت سفارش'
+      );
+
+      // Update payment as completed
+      await payment.update({
+        status: 'completed',
+        paidAt: new Date(),
+        gatewayRef: `WALLET-${deductResult.transaction?.id || Date.now()}`,
+        gatewayResponse: {
+          method: 'wallet',
+          balanceType,
+          transaction: deductResult.transaction,
+          newBalance: deductResult.wallet?.personalBalance || deductResult.wallet?.companyBalance
+        }
+      });
+
+      // Publish success event
+      await eventPublisher.publish('payment.completed', {
+        paymentId: payment.id,
+        orderId: payment.orderId,
+        invoiceId: payment.invoiceId,
+        userId: payment.userId,
+        amount: parseFloat(payment.amount),
+        gateway: 'wallet',
+        trackingCode: payment.trackingCode,
+        refId: payment.gatewayRef
+      });
+
+      logger.info('پرداخت با کیف پول انجام شد', {
+        paymentId: payment.id,
+        trackingCode: payment.trackingCode,
+        amount: payment.amount
+      });
+
+      return {
+        payment: this.formatPayment(payment),
+        paymentUrl: null,
+        walletTransaction: deductResult.transaction
+      };
+
+    } catch (error) {
+      if (error.statusCode) throw error;
+
+      await payment.update({
+        status: 'failed',
+        gatewayResponse: { error: error.message }
+      });
+
+      logger.error('خطا در پرداخت با کیف پول', {
+        paymentId: payment.id,
+        error: error.message
+      });
+
+      throw {
+        statusCode: error.statusCode || 500,
+        code: error.code || 'ERR_WALLET_PAYMENT_FAILED',
+        message: error.message || 'خطا در پرداخت با کیف پول'
+      };
+    }
   }
 
   async verifyPayment(paymentId, gatewayData) {
