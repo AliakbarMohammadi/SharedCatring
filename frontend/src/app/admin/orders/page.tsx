@@ -17,7 +17,7 @@ import { formatPrice, toJalali, orderStatusLabels, orderStatusColors, toPersianD
 import toast from 'react-hot-toast';
 
 const statusOptions = [
-  { value: '', label: 'همه وضعیت‌ها' },
+  { value: 'all', label: 'همه وضعیت‌ها' },
   { value: 'pending', label: 'در انتظار' },
   { value: 'confirmed', label: 'تأیید شده' },
   { value: 'preparing', label: 'در حال آماده‌سازی' },
@@ -29,14 +29,14 @@ const statusOptions = [
 
 export default function AdminOrdersPage() {
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [statusModal, setStatusModal] = useState<{ order: any; newStatus: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'orders', { status: statusFilter, page }],
-    queryFn: () => adminService.getOrders({ status: statusFilter || undefined, page, limit: 20 }),
+    queryFn: () => adminService.getOrders({ status: statusFilter === 'all' ? undefined : statusFilter, page, limit: 20 }),
   });
 
   const updateStatusMutation = useMutation({

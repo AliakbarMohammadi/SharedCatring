@@ -17,7 +17,7 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 
 const roleOptions = [
-  { value: '', label: 'همه نقش‌ها' },
+  { value: 'all', label: 'همه نقش‌ها' },
   { value: 'personal_user', label: 'کاربر شخصی' },
   { value: 'corporate_user', label: 'کاربر سازمانی' },
   { value: 'company_admin', label: 'مدیر شرکت' },
@@ -27,7 +27,7 @@ const roleOptions = [
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [toggleUserId, setToggleUserId] = useState<string | null>(null);
 
@@ -35,7 +35,7 @@ export default function AdminUsersPage() {
     queryKey: ['admin', 'users', { search: searchQuery, role: roleFilter, page }],
     queryFn: () => adminService.getUsers({
       search: searchQuery || undefined,
-      role: roleFilter || undefined,
+      role: roleFilter === 'all' ? undefined : roleFilter,
       page,
       limit: 20,
     }),

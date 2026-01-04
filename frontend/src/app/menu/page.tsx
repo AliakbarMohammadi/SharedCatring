@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { menuService, Category, FoodItem } from '@/services/menu.service';
 import { useCartStore } from '@/stores/cart.store';
-import { formatPrice, toPersianDigits } from '@/lib/utils/format';
+import { formatPrice, toPersianDigits, getTodayPersian } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -49,10 +49,13 @@ export default function MenuPage() {
   };
 
   const handleAddToCart = (food: FoodItem) => {
+    const foodId = food._id || food.id;
+    const price = food.pricing?.basePrice || food.effectivePrice || food.price;
+    
     addItem({
-      foodId: food.id,
+      foodId,
       foodName: food.name,
-      unitPrice: food.price,
+      unitPrice: price,
       image: food.image,
     });
     toast.success(`${food.name} به سبد خرید اضافه شد`);
@@ -67,7 +70,10 @@ export default function MenuPage() {
     <DashboardLayout>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-secondary-800 mb-2">منوی غذا</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-2xl font-bold text-secondary-800">منوی غذا</h1>
+          <span className="text-sm text-secondary-500">{getTodayPersian()}</span>
+        </div>
         <p className="text-secondary-500">غذای مورد علاقه خود را انتخاب کنید</p>
       </div>
 
@@ -116,10 +122,10 @@ export default function MenuPage() {
           ) : (
             categories?.map((cat) => (
               <Button
-                key={cat.id}
-                variant={selectedCategory === cat.id ? 'primary' : 'outline'}
+                key={cat._id || cat.id}
+                variant={selectedCategory === (cat._id || cat.id) ? 'primary' : 'outline'}
                 size="sm"
-                onClick={() => setSelectedCategory(cat.id)}
+                onClick={() => setSelectedCategory(cat._id || cat.id)}
               >
                 {cat.name}
               </Button>
@@ -159,27 +165,33 @@ export default function MenuPage() {
         />
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {foods.map((food) => (
-            <FoodCard
-              key={food.id}
-              food={food}
-              cartQuantity={getCartQuantity(food.id)}
-              onAdd={() => handleAddToCart(food)}
-              onUpdateQuantity={(delta) => handleUpdateQuantity(food.id, delta)}
-            />
-          ))}
+          {foods.map((food) => {
+            const foodId = food._id || food.id;
+            return (
+              <FoodCard
+                key={foodId}
+                food={food}
+                cartQuantity={getCartQuantity(foodId)}
+                onAdd={() => handleAddToCart(food)}
+                onUpdateQuantity={(delta) => handleUpdateQuantity(foodId, delta)}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="space-y-4">
-          {foods.map((food) => (
-            <FoodListItem
-              key={food.id}
-              food={food}
-              cartQuantity={getCartQuantity(food.id)}
-              onAdd={() => handleAddToCart(food)}
-              onUpdateQuantity={(delta) => handleUpdateQuantity(food.id, delta)}
-            />
-          ))}
+          {foods.map((food) => {
+            const foodId = food._id || food.id;
+            return (
+              <FoodListItem
+                key={foodId}
+                food={food}
+                cartQuantity={getCartQuantity(foodId)}
+                onAdd={() => handleAddToCart(food)}
+                onUpdateQuantity={(delta) => handleUpdateQuantity(foodId, delta)}
+              />
+            );
+          })}
         </div>
       )}
     </DashboardLayout>
@@ -198,9 +210,12 @@ function FoodCard({
   onAdd: () => void;
   onUpdateQuantity: (delta: number) => void;
 }) {
+  const foodId = food._id || food.id;
+  const price = food.pricing?.basePrice || food.effectivePrice || food.price;
+  
   return (
     <Card variant="elevated" padding="none" className="overflow-hidden group">
-      <Link href={`/menu/${food.id}`}>
+      <Link href={`/menu/${foodId}`}>
         <div className="relative h-48 bg-secondary-100 overflow-hidden">
           {food.image ? (
             <img
@@ -224,7 +239,7 @@ function FoodCard({
         </div>
       </Link>
       <CardContent className="p-4">
-        <Link href={`/menu/${food.id}`}>
+        <Link href={`/menu/${foodId}`}>
           <h3 className="font-bold text-secondary-800 mb-1 hover:text-primary-600 transition-colors">
             {food.name}
           </h3>
@@ -233,7 +248,7 @@ function FoodCard({
           <p className="text-sm text-secondary-500 line-clamp-2 mb-3">{food.description}</p>
         )}
         <div className="flex items-center justify-between">
-          <span className="text-primary-600 font-bold">{formatPrice(food.price)}</span>
+          <span className="text-primary-600 font-bold">{formatPrice(price)}</span>
           {cartQuantity > 0 ? (
             <div className="flex items-center gap-2">
               <Button
@@ -283,10 +298,13 @@ function FoodListItem({
   onAdd: () => void;
   onUpdateQuantity: (delta: number) => void;
 }) {
+  const foodId = food._id || food.id;
+  const price = food.pricing?.basePrice || food.effectivePrice || food.price;
+  
   return (
     <Card variant="elevated" padding="md">
       <div className="flex gap-4">
-        <Link href={`/menu/${food.id}`} className="flex-shrink-0">
+        <Link href={`/menu/${foodId}`} className="flex-shrink-0">
           <div className="w-24 h-24 sm:w-32 sm:h-32 bg-secondary-100 rounded-lg overflow-hidden">
             {food.image ? (
               <img src={food.image} alt={food.name} className="w-full h-full object-cover" />
@@ -297,7 +315,7 @@ function FoodListItem({
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
-            <Link href={`/menu/${food.id}`}>
+            <Link href={`/menu/${foodId}`}>
               <h3 className="font-bold text-secondary-800 hover:text-primary-600 transition-colors">
                 {food.name}
               </h3>
@@ -310,7 +328,7 @@ function FoodListItem({
             <p className="text-sm text-secondary-500 line-clamp-2 mb-3">{food.description}</p>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-primary-600 font-bold text-lg">{formatPrice(food.price)}</span>
+            <span className="text-primary-600 font-bold text-lg">{formatPrice(price)}</span>
             {cartQuantity > 0 ? (
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => onUpdateQuantity(-1)} className="w-8 h-8 p-0">

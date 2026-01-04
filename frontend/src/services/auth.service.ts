@@ -18,6 +18,7 @@ export interface RegisterRequest {
   password: string;
   firstName?: string;
   lastName?: string;
+  role?: 'personal_user' | 'company_admin';
 }
 
 export interface LoginResponse {

@@ -225,6 +225,14 @@ export function getTodayJalali(): string {
 }
 
 /**
+ * Get today's date in Jalali with day name
+ * دریافت تاریخ امروز به شمسی با نام روز
+ */
+export function getTodayPersian(): string {
+  return jalaliMoment().locale('fa').format('dddd jD jMMMM jYYYY');
+}
+
+/**
  * Get current Jalali year
  * دریافت سال جاری شمسی
  */

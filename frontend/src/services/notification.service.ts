@@ -73,10 +73,15 @@ export const notificationService = {
    * دریافت تعداد خوانده نشده
    */
   async getUnreadCount(): Promise<number> {
-    const response = await apiClient.get<ApiResponse<{ count: number }>>(
-      '/notifications/unread-count'
-    );
-    return response.data.data.count;
+    try {
+      const response = await apiClient.get<ApiResponse<{ count: number }>>(
+        '/notifications/unread-count'
+      );
+      return response.data?.data?.count ?? 0;
+    } catch (error) {
+      console.warn('Failed to fetch unread count:', error);
+      return 0;
+    }
   },
 
   /**

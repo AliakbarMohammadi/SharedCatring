@@ -17,7 +17,7 @@ import { formatPrice, toJalali, toPersianDigits } from '@/lib/utils/format';
 import toast from 'react-hot-toast';
 
 const statusOptions = [
-  { value: '', label: 'همه وضعیت‌ها' },
+  { value: 'all', label: 'همه وضعیت‌ها' },
   { value: 'pending', label: 'در انتظار تأیید' },
   { value: 'approved', label: 'تأیید شده' },
   { value: 'rejected', label: 'رد شده' },
@@ -38,7 +38,7 @@ const statusColors: Record<string, string> = {
 export default function AdminCompaniesPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [approveId, setApproveId] = useState<string | null>(null);
   const [rejectModal, setRejectModal] = useState<{ id: string; reason: string } | null>(null);
@@ -47,7 +47,7 @@ export default function AdminCompaniesPage() {
     queryKey: ['admin', 'companies', { search: searchQuery, status: statusFilter, page }],
     queryFn: () => adminService.getCompanies({
       search: searchQuery || undefined,
-      status: statusFilter || undefined,
+      status: statusFilter === 'all' ? undefined : statusFilter,
       page,
       limit: 20,
     }),

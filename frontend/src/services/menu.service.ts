@@ -7,6 +7,7 @@ import apiClient, { ApiResponse, PaginatedResponse } from '@/lib/api/client';
 
 // Types
 export interface Category {
+  _id?: string; // MongoDB ID
   id: string;
   name: string;
   slug: string;
@@ -17,10 +18,12 @@ export interface Category {
 }
 
 export interface FoodItem {
+  _id?: string; // MongoDB ID
   id: string;
   name: string;
   description?: string;
   price: number;
+  effectivePrice?: number;
   image?: string;
   categoryId: string;
   categoryName?: string;
@@ -31,6 +34,22 @@ export interface FoodItem {
   isPopular?: boolean;
   rating?: number;
   reviewCount?: number;
+  remainingQuantity?: number;
+  attributes?: {
+    isVegetarian?: boolean;
+    isSpicy?: boolean;
+    isGlutenFree?: boolean;
+    allergens?: string[];
+  };
+  // Backend pricing structure
+  pricing?: {
+    basePrice: number;
+    corporatePrices?: Array<{
+      companyId: string;
+      price: number;
+      discountPercentage?: number;
+    }>;
+  };
 }
 
 export interface DailyMenu {
@@ -64,8 +83,8 @@ export interface WeeklyMenu {
 // API Functions
 export const menuService = {
   /**
-   * Get all categories
-   * دریافت همه دسته‌بندی‌ها
+   * Get categories
+   * دریافت دسته‌بندی‌ها
    */
   async getCategories(): Promise<Category[]> {
     const response = await apiClient.get<ApiResponse<Category[]>>('/menu/categories');
@@ -88,7 +107,7 @@ export const menuService = {
   },
 
   /**
-   * Get all foods
+   * Get all foods (menu items)
    * دریافت همه غذاها
    */
   async getFoods(params?: {
@@ -98,8 +117,15 @@ export const menuService = {
     search?: string;
     available?: boolean;
   }): Promise<PaginatedResponse<FoodItem>> {
-    const response = await apiClient.get<PaginatedResponse<FoodItem>>('/menu/foods', {
-      params,
+    // Map available to isAvailable for backend compatibility
+    const backendParams = params ? {
+      ...params,
+      isAvailable: params.available,
+      available: undefined
+    } : {};
+    
+    const response = await apiClient.get<PaginatedResponse<FoodItem>>('/menu/items', {
+      params: backendParams,
     });
     return response.data;
   },
@@ -109,7 +135,7 @@ export const menuService = {
    * دریافت غذا با شناسه
    */
   async getFoodById(id: string): Promise<FoodItem> {
-    const response = await apiClient.get<ApiResponse<FoodItem>>(`/menu/foods/${id}`);
+    const response = await apiClient.get<ApiResponse<FoodItem>>(`/menu/items/${id}`);
     return response.data.data;
   },
 
@@ -138,8 +164,8 @@ export const menuService = {
    * جستجوی غذاها
    */
   async searchFoods(query: string): Promise<FoodItem[]> {
-    const response = await apiClient.get<ApiResponse<FoodItem[]>>('/menu/foods/search', {
-      params: { q: query },
+    const response = await apiClient.get<ApiResponse<FoodItem[]>>('/menu/items', {
+      params: { search: query },
     });
     return response.data.data;
   },
@@ -149,7 +175,7 @@ export const menuService = {
    * دریافت غذاهای پرطرفدار
    */
   async getPopularFoods(limit = 10): Promise<FoodItem[]> {
-    const response = await apiClient.get<ApiResponse<FoodItem[]>>('/menu/foods/popular', {
+    const response = await apiClient.get<ApiResponse<FoodItem[]>>('/menu/items/popular', {
       params: { limit },
     });
     return response.data.data;

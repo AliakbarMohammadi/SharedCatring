@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -12,7 +12,7 @@ import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { authService } from '@/services/auth.service';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuthStore, getRedirectPath } from '@/stores/auth.store';
 import { getErrorMessage } from '@/lib/api/client';
 
 const loginSchema = z.object({
@@ -25,7 +25,15 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuthStore();
+  const { login, isAuthenticated, user } = useAuthStore();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const redirectPath = getRedirectPath(user.role);
+      router.replace(redirectPath);
+    }
+  }, [isAuthenticated, user, router]);
 
   const {
     register,
@@ -38,17 +46,27 @@ export default function LoginPage() {
   const loginMutation = useMutation({
     mutationFn: authService.login,
     onSuccess: (data) => {
+      // 1. Store tokens and user data
       login(data.user, data.accessToken, data.refreshToken);
-      toast.success('خوش آمدید!');
       
-      // Redirect based on role
-      if (data.user.role === 'admin') {
-        router.push('/admin');
-      } else if (data.user.role === 'company_admin') {
-        router.push('/company');
-      } else {
-        router.push('/dashboard');
-      }
+      // 2. Show success message
+      toast.success(`خوش آمدید ${data.user.firstName || ''}!`);
+      
+      // 3. Redirect based on role with a small delay to ensure state is persisted
+      const redirectPath = getRedirectPath(data.user.role);
+      
+      // Use setTimeout to ensure state is saved before redirect
+      setTimeout(() => {
+        // Try router.replace first (prevents back button to login)
+        router.replace(redirectPath);
+        
+        // Fallback: if router doesn't work, use window.location
+        setTimeout(() => {
+          if (window.location.pathname.includes('/auth/login')) {
+            window.location.href = redirectPath;
+          }
+        }, 500);
+      }, 100);
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));

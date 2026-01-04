@@ -16,7 +16,7 @@ import { formatPrice, toJalali, orderStatusLabels, orderStatusColors, toPersianD
 import { cn } from '@/lib/utils/cn';
 
 const statusFilters = [
-  { value: '', label: 'همه' },
+  { value: 'all', label: 'همه' },
   { value: 'pending', label: 'در انتظار' },
   { value: 'confirmed', label: 'تأیید شده' },
   { value: 'preparing', label: 'در حال آماده‌سازی' },
@@ -27,12 +27,12 @@ const statusFilters = [
 ];
 
 export default function OrdersPage() {
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
 
   const { data, isLoading } = useQuery({
     queryKey: ['orders', { status: statusFilter, page }],
-    queryFn: () => orderService.getOrders({ status: statusFilter || undefined, page, limit: 10 }),
+    queryFn: () => orderService.getOrders({ status: statusFilter === 'all' ? undefined : statusFilter, page, limit: 10 }),
   });
 
   const orders = data?.data || [];
@@ -81,10 +81,10 @@ export default function OrdersPage() {
         <EmptyState
           icon={<ClipboardList className="w-16 h-16" />}
           title="سفارشی یافت نشد"
-          description={statusFilter ? 'سفارشی با این وضعیت وجود ندارد' : 'هنوز سفارشی ثبت نکرده‌اید'}
+          description={statusFilter !== 'all' ? 'سفارشی با این وضعیت وجود ندارد' : 'هنوز سفارشی ثبت نکرده‌اید'}
           action={
-            statusFilter ? (
-              <Button variant="primary" onClick={() => setStatusFilter('')}>
+            statusFilter !== 'all' ? (
+              <Button variant="primary" onClick={() => setStatusFilter('all')}>
                 نمایش همه سفارشات
               </Button>
             ) : (

@@ -137,3 +137,24 @@ export const selectCartTotal = (state: CartState) =>
   state.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 export const selectCartItemCount = (state: CartState) =>
   state.items.reduce((sum, item) => sum + item.quantity, 0);
+export const selectCartSubtotal = selectCartTotal;
+export const selectIsCartEmpty = (state: CartState) => state.items.length === 0;
+export const selectDeliveryInfo = (state: CartState) => ({
+  date: state.deliveryDate,
+  timeSlot: state.deliveryTimeSlot,
+  address: state.deliveryAddress,
+});
+
+/**
+ * Get cart item by food ID
+ * دریافت آیتم سبد خرید با شناسه غذا
+ */
+export const selectCartItemByFoodId = (foodId: string) => (state: CartState) =>
+  state.items.find((item) => item.foodId === foodId);
+
+/**
+ * Check if food is in cart
+ * بررسی وجود غذا در سبد خرید
+ */
+export const selectIsFoodInCart = (foodId: string) => (state: CartState) =>
+  state.items.some((item) => item.foodId === foodId);
