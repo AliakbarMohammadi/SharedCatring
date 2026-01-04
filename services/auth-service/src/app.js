@@ -10,6 +10,7 @@ const config = require('./config');
 const { connectDB, disconnectDB } = require('./config/database');
 const logger = require('./utils/logger');
 const eventPublisher = require('./events/publisher');
+const eventSubscriber = require('./events/subscriber');
 const apiRoutes = require('./api/routes');
 const { errorHandler, notFoundHandler, generalLimiter } = require('./api/middlewares');
 
@@ -63,7 +64,8 @@ const createApp = () => {
         uptime: process.uptime(),
         dependencies: {
           mongodb: dbStatus,
-          rabbitmq: eventPublisher.isConnected ? 'connected' : 'disconnected'
+          rabbitmq: eventPublisher.isConnected ? 'connected' : 'disconnected',
+          eventSubscriber: eventSubscriber.isConnected ? 'connected' : 'disconnected'
         }
       },
       message: 'سرویس در حال اجرا است'
@@ -105,6 +107,7 @@ const startServer = async () => {
 
     // Connect to RabbitMQ
     await eventPublisher.connect();
+    await eventSubscriber.connect();
 
     // Create app
     const app = createApp();
@@ -126,6 +129,7 @@ const startServer = async () => {
 
         await disconnectDB();
         await eventPublisher.close();
+        await eventSubscriber.close();
 
         logger.info('خاموش شدن کامل شد');
         process.exit(0);

@@ -3,8 +3,13 @@ const { orderService } = require('../../services');
 class OrderController {
   async create(req, res, next) {
     try {
-      const userId = req.user.userId;
-      const order = await orderService.create(userId, req.body);
+      const userId = req.user.userId || req.user.id;
+      const user = {
+        id: userId,
+        companyId: req.user.companyId || null,
+        role: req.user.role || 'user'
+      };
+      const order = await orderService.create(userId, req.body, user);
 
       res.status(201).json({
         success: true,
@@ -221,13 +226,14 @@ class OrderController {
 
       for (const orderData of orders) {
         try {
+          const user = { companyId, role: 'employee' };
           const order = await orderService.create(orderData.employeeId, {
             companyId,
             employeeId: orderData.employeeId,
             orderType: 'corporate',
             items: orderData.items,
             deliveryDate
-          });
+          }, user);
           results.push({ success: true, order });
         } catch (error) {
           results.push({ success: false, employeeId: orderData.employeeId, error: error.message });

@@ -31,6 +31,15 @@ class UserService {
       }
     }
 
+    // If still no role, assign default role (personal_user)
+    if (!finalRoleId) {
+      const defaultRole = await Role.findOne({ where: { name: 'personal_user' } });
+      if (defaultRole) {
+        finalRoleId = defaultRole.id;
+        logger.info('نقش پیش‌فرض تخصیص داده شد', { roleName: 'personal_user' });
+      }
+    }
+
     // Validate role if provided
     if (finalRoleId) {
       const role = await Role.findByPk(finalRoleId);

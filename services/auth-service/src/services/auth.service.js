@@ -169,12 +169,8 @@ class AuthService {
     // Revoke old refresh token
     await tokenDoc.revoke();
 
-    // Generate new tokens
+    // Generate new refresh token
     const newRefreshToken = tokenService.generateRefreshToken();
-    const accessToken = tokenService.generateAccessToken({
-      userId: tokenDoc.userId,
-      // Note: In production, fetch user data from user-service
-    });
 
     // Save new refresh token
     await tokenService.saveRefreshToken(tokenDoc.userId, newRefreshToken);
@@ -185,9 +181,10 @@ class AuthService {
 
     logger.debug('توکن تمدید شد', { userId: tokenDoc.userId });
 
+    // Return tokens - user data will be fetched fresh by controller
     return {
-      accessToken,
-      refreshToken: newRefreshToken,
+      userId: tokenDoc.userId,
+      newRefreshToken,
       expiresIn: tokenService.parseExpiresIn(config.jwt.accessExpiresIn)
     };
   }

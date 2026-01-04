@@ -118,9 +118,39 @@ class AuthController {
 
       const result = await authService.refreshToken(refreshToken, requestInfo);
 
+      // Fetch fresh user data from Identity Service to get latest role
+      const user = await identityService.getUserById(result.userId);
+      
+      if (!user) {
+        throw {
+          statusCode: 401,
+          code: 'ERR_USER_NOT_FOUND',
+          message: 'کاربر یافت نشد. لطفاً دوباره وارد شوید'
+        };
+      }
+
+      // Generate new access token with fresh user data
+      const userForToken = {
+        id: user.id,
+        email: user.email,
+        role: user.role?.name || 'personal_user',
+        companyId: user.companyId
+      };
+
+      const accessToken = tokenService.generateAccessToken({
+        userId: userForToken.id,
+        email: userForToken.email,
+        role: userForToken.role,
+        companyId: userForToken.companyId
+      });
+
       res.json({
         success: true,
-        data: result,
+        data: {
+          accessToken,
+          refreshToken: result.newRefreshToken,
+          expiresIn: result.expiresIn
+        },
         message: 'توکن با موفقیت تمدید شد'
       });
     } catch (error) {

@@ -21,6 +21,39 @@ class SubsidyController {
       res.json({ success: true, data: rule, message: 'قانون یارانه ویرایش شد' });
     } catch (error) { next(error); }
   }
+
+  /**
+   * Calculate subsidy for an order (Internal API)
+   */
+  async calculate(req, res, next) {
+    try {
+      const { userId, orderAmount, mealType } = req.body;
+      const result = await subsidyService.calculateSubsidy(
+        req.params.id,
+        userId,
+        orderAmount,
+        mealType
+      );
+      res.json({ success: true, data: result, message: 'یارانه محاسبه شد' });
+    } catch (error) { next(error); }
+  }
+
+  /**
+   * Get employee info for ordering
+   */
+  async getEmployeeInfo(req, res, next) {
+    try {
+      const { userId } = req.query;
+      const result = await subsidyService.getEmployeeInfo(req.params.id, userId);
+      if (!result) {
+        return res.status(404).json({ 
+          success: false, 
+          error: { code: 'ERR_EMPLOYEE_NOT_FOUND', message: 'کارمند یافت نشد' }
+        });
+      }
+      res.json({ success: true, data: result });
+    } catch (error) { next(error); }
+  }
 }
 
 module.exports = new SubsidyController();

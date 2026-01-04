@@ -45,4 +45,8 @@ router.post('/:id/subsidy-rules', validateCreateSubsidy, subsidyController.creat
 router.get('/:id/subsidy-rules', subsidyController.findByCompany);
 router.put('/:id/subsidy-rules/:ruleId', validateUpdateSubsidy, subsidyController.update);
 
+// Subsidy Calculation (Internal API)
+router.post('/:id/subsidy/calculate', subsidyController.calculate);
+router.get('/:id/employee-info', subsidyController.getEmployeeInfo);
+
 module.exports = router;

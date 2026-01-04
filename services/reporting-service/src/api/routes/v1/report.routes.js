@@ -47,7 +47,7 @@ const {
  *       403:
  *         description: عدم دسترسی
  */
-router.get('/dashboard', requireAuth, requireAdmin, reportController.getDashboard);
+router.get('/dashboard', requireAuth, requireAdminOrCompanyAdmin, reportController.getDashboard);
 
 /**
  * @swagger
@@ -74,7 +74,7 @@ router.get('/dashboard', requireAuth, requireAdmin, reportController.getDashboar
  *       401:
  *         description: عدم احراز هویت
  */
-router.get('/orders/daily', requireAuth, requireAdmin, validateDailyReport, reportController.getDailyReport);
+router.get('/orders/daily', requireAuth, requireAdminOrCompanyAdmin, validateDailyReport, reportController.getDailyReport);
 
 /**
  * @swagger
@@ -108,7 +108,7 @@ router.get('/orders/daily', requireAuth, requireAdmin, validateDailyReport, repo
  *       401:
  *         description: عدم احراز هویت
  */
-router.get('/orders/monthly', requireAuth, requireAdmin, validateMonthlyReport, reportController.getMonthlyReport);
+router.get('/orders/monthly', requireAuth, requireAdminOrCompanyAdmin, validateMonthlyReport, reportController.getMonthlyReport);
 
 /**
  * @swagger
@@ -147,7 +147,7 @@ router.get('/orders/monthly', requireAuth, requireAdmin, validateMonthlyReport, 
  *       401:
  *         description: عدم احراز هویت
  */
-router.get('/revenue', requireAuth, requireAdmin, validateDateRange, reportController.getRevenueReport);
+router.get('/revenue', requireAuth, requireAdminOrCompanyAdmin, validateDateRange, reportController.getRevenueReport);
 
 /**
  * @swagger
@@ -236,7 +236,7 @@ router.get(
  *       401:
  *         description: عدم احراز هویت
  */
-router.get('/popular-items', requireAuth, requireAdmin, validatePopularItems, reportController.getPopularItems);
+router.get('/popular-items', requireAuth, requireAdminOrCompanyAdmin, validatePopularItems, reportController.getPopularItems);
 
 /**
  * @swagger

@@ -2,6 +2,9 @@ const reportService = require('../../services/report.service');
 const excelService = require('../../services/excel.service');
 const logger = require('../../utils/logger');
 
+// Admin roles that can see all data
+const ADMIN_ROLES = ['admin', 'super_admin', 'catering_admin'];
+
 class ReportController {
   /**
    * GET /api/v1/reports/dashboard
@@ -9,7 +12,9 @@ class ReportController {
    */
   async getDashboard(req, res, next) {
     try {
-      const data = await reportService.getDashboard();
+      // For company admins, filter by their company
+      const companyId = ADMIN_ROLES.includes(req.user.role) ? null : req.user.companyId;
+      const data = await reportService.getDashboard(companyId);
       
       res.json({
         success: true,
@@ -29,7 +34,8 @@ class ReportController {
   async getDailyReport(req, res, next) {
     try {
       const { date } = req.query;
-      const data = await reportService.getDailyReport(date);
+      const companyId = ADMIN_ROLES.includes(req.user.role) ? null : req.user.companyId;
+      const data = await reportService.getDailyReport(date, companyId);
       
       res.json({
         success: true,
@@ -49,9 +55,11 @@ class ReportController {
   async getMonthlyReport(req, res, next) {
     try {
       const { year, month } = req.query;
+      const companyId = ADMIN_ROLES.includes(req.user.role) ? null : req.user.companyId;
       const data = await reportService.getMonthlyReport(
         year ? parseInt(year) : undefined,
-        month ? parseInt(month) : undefined
+        month ? parseInt(month) : undefined,
+        companyId
       );
       
       res.json({
@@ -72,10 +80,12 @@ class ReportController {
   async getRevenueReport(req, res, next) {
     try {
       const { startDate, endDate, groupBy } = req.query;
+      const companyId = ADMIN_ROLES.includes(req.user.role) ? null : req.user.companyId;
       const data = await reportService.getRevenueReport({
         startDate,
         endDate,
-        groupBy
+        groupBy,
+        companyId
       });
       
       res.json({
@@ -121,10 +131,12 @@ class ReportController {
   async getPopularItems(req, res, next) {
     try {
       const { limit, startDate, endDate } = req.query;
+      const companyId = ADMIN_ROLES.includes(req.user.role) ? null : req.user.companyId;
       const data = await reportService.getPopularItems({
         limit: limit ? parseInt(limit) : 10,
         startDate,
-        endDate
+        endDate,
+        companyId
       });
       
       res.json({

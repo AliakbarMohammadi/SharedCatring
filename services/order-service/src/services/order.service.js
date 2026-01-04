@@ -1,6 +1,7 @@
 const { Order, OrderItem, OrderStatusHistory, Cart, CartItem } = require('../models');
 const { generateOrderNumber, getStartOfDay, getEndOfDay, orderStatusLabels } = require('../utils/helpers');
 const menuClient = require('../utils/menuClient');
+const companyClient = require('../utils/companyClient');
 const eventPublisher = require('../events/publisher');
 const logger = require('../utils/logger');
 const config = require('../config');
@@ -11,10 +12,8 @@ class OrderService {
    * Create a new order
    * ایجاد سفارش جدید با پشتیبانی از Graceful Degradation
    */
-  async create(userId, orderData) {
+  async create(userId, orderData, user = {}) {
     const {
-      companyId,
-      employeeId,
       orderType = 'personal',
       items,
       deliveryDate,
@@ -22,8 +21,13 @@ class OrderService {
       deliveryAddress,
       deliveryNotes,
       promoCode,
+      mealType = 'lunch',
       notes
     } = orderData;
+
+    // Get companyId from user token or orderData
+    const companyId = user.companyId || orderData.companyId || null;
+    const employeeId = orderData.employeeId || null;
 
     // Build fallback map from client-provided data
     const fallbackMap = new Map();
@@ -111,8 +115,42 @@ class OrderService {
     // TODO: Apply promo code discount
     let discountAmount = 0;
     
-    // TODO: Calculate subsidy for corporate orders
+    // Calculate subsidy for corporate orders
     let subsidyAmount = 0;
+    let subsidyInfo = null;
+    let finalEmployeeId = employeeId;
+
+    if (orderType === 'corporate' && companyId) {
+      try {
+        subsidyInfo = await companyClient.calculateSubsidy(
+          companyId,
+          userId,
+          subtotal,
+          mealType
+        );
+        
+        subsidyAmount = subsidyInfo.subsidyAmount || 0;
+        
+        if (subsidyInfo.employeeId) {
+          finalEmployeeId = subsidyInfo.employeeId;
+        }
+
+        logger.info('یارانه محاسبه شد', {
+          companyId,
+          userId,
+          subtotal,
+          subsidyAmount,
+          ruleName: subsidyInfo.ruleName
+        });
+
+        if (subsidyInfo.reason && subsidyAmount === 0) {
+          warnings.push(`یارانه: ${subsidyInfo.reason}`);
+        }
+      } catch (error) {
+        logger.error('خطا در محاسبه یارانه', { error: error.message });
+        warnings.push('محاسبه یارانه با خطا مواجه شد');
+      }
+    }
     
     // TODO: Calculate tax
     let taxAmount = 0;
@@ -129,7 +167,7 @@ class OrderService {
       orderNumber: generateOrderNumber(),
       userId,
       companyId,
-      employeeId,
+      employeeId: finalEmployeeId,
       orderType,
       status: 'pending',
       subtotal,

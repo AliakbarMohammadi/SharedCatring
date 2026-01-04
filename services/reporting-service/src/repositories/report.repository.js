@@ -42,7 +42,30 @@ class ReportRepository {
         revenue_growth: parseFloat(revenueGrowth)
       };
     } catch (error) {
-      logger.error('خطا در دریافت متریک‌های داشبورد', { error: error.message });
+      // Log full error for debugging
+      logger.error('خطا در دریافت متریک‌های داشبورد', { 
+        error: error.message,
+        stack: error.stack,
+        sql: error.sql,
+        original: error.original?.message
+      });
+      console.error('Database Error Details:', error);
+      
+      // If table doesn't exist, return empty metrics instead of throwing
+      if (error.original?.code === '42P01' || error.message?.includes('does not exist')) {
+        logger.warn('جدول orders وجود ندارد، مقادیر پیش‌فرض برگردانده می‌شود');
+        return {
+          today_orders: 0,
+          today_revenue: 0,
+          pending_orders: 0,
+          active_users: 0,
+          yesterday_orders: 0,
+          yesterday_revenue: 0,
+          order_growth: 0,
+          revenue_growth: 0
+        };
+      }
+      
       throw {
         statusCode: 500,
         code: 'ERR_DATABASE_ERROR',
@@ -89,7 +112,25 @@ class ReportRepository {
 
       return results;
     } catch (error) {
-      logger.error('خطا در دریافت گزارش روزانه', { error: error.message, date });
+      logger.error('خطا در دریافت گزارش روزانه', { 
+        error: error.message, 
+        date,
+        original: error.original?.message 
+      });
+      
+      // If table doesn't exist, return empty data
+      if (error.original?.code === '42P01' || error.message?.includes('does not exist')) {
+        return [{
+          date,
+          total_orders: 0,
+          completed_orders: 0,
+          cancelled_orders: 0,
+          total_revenue: 0,
+          avg_order_value: 0,
+          unique_customers: 0
+        }];
+      }
+      
       throw {
         statusCode: 500,
         code: 'ERR_DATABASE_ERROR',
