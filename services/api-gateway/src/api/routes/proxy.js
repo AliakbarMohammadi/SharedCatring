@@ -38,6 +38,10 @@ const setupProxyRoutes = (app) => {
   const { authenticate, optionalAuth } = require('../middlewares/auth');
   const { authRateLimiter } = require('../middlewares/rateLimiter');
 
+  // Admin Routes - Direct handling in API Gateway
+  const adminRoutes = require('./admin.routes');
+  app.use('/api/v1/admin', adminRoutes);
+
   // Auth Service - Public routes
   app.use('/api/v1/auth', createProxy(config.services.auth, {
     '^/api/v1/auth': '/api/v1/auth'

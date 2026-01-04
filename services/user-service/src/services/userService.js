@@ -1,6 +1,19 @@
 const userRepository = require('../repositories/userRepository');
 
 class UserService {
+  async getUserStats() {
+    const stats = await userRepository.getStats();
+    return {
+      totalUsers: stats.totalUsers || 0,
+      activeUsers: stats.activeUsers || 0,
+      inactiveUsers: stats.inactiveUsers || 0,
+      pendingUsers: stats.pendingUsers || 0,
+      suspendedUsers: stats.suspendedUsers || 0,
+      usersThisMonth: stats.usersThisMonth || 0,
+      usersToday: stats.usersToday || 0
+    };
+  }
+
   async createUser(userData) {
     // Check if email exists
     const existingUser = await userRepository.findByEmail(userData.email);

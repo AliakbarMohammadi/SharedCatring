@@ -6,6 +6,20 @@ const { requireAuth, kitchenAccess, companyAdminAccess } = require('../../middle
 
 /**
  * @swagger
+ * /api/v1/orders/stats:
+ *   get:
+ *     summary: آمار سفارشات (ادمین)
+ *     tags: [آمار]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: آمار سفارشات
+ */
+router.get('/stats', requireAuth, orderController.getStats);
+
+/**
+ * @swagger
  * /api/v1/orders:
  *   post:
  *     summary: ثبت سفارش جدید

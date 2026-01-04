@@ -3,6 +3,9 @@ const router = express.Router();
 const userController = require('../../controllers/userController');
 const { validate, createUserSchema, updateUserSchema, updateStatusSchema } = require('../../validators/userValidator');
 
+// Get user stats (admin only)
+router.get('/stats', userController.getStats);
+
 // Get all users (admin only)
 router.get('/', userController.getAll);
 

@@ -2,6 +2,40 @@ const User = require('../models/User');
 const { Op } = require('sequelize');
 
 class UserRepository {
+  async getStats() {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+      pendingUsers,
+      suspendedUsers,
+      usersThisMonth,
+      usersToday
+    ] = await Promise.all([
+      User.count(),
+      User.count({ where: { status: 'active' } }),
+      User.count({ where: { status: 'inactive' } }),
+      User.count({ where: { status: 'pending' } }),
+      User.count({ where: { status: 'suspended' } }),
+      User.count({ where: { createdAt: { [Op.gte]: startOfMonth } } }),
+      User.count({ where: { createdAt: { [Op.gte]: startOfToday } } })
+    ]);
+
+    return {
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+      pendingUsers,
+      suspendedUsers,
+      usersThisMonth,
+      usersToday
+    };
+  }
+
   async create(userData) {
     return User.create(userData);
   }

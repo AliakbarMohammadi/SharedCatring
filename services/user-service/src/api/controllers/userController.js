@@ -1,6 +1,20 @@
 const userService = require('../../services/userService');
 
 class UserController {
+  async getStats(req, res, next) {
+    try {
+      const stats = await userService.getUserStats();
+      
+      res.json({
+        success: true,
+        data: stats,
+        message: 'آمار کاربران با موفقیت دریافت شد'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async create(req, res, next) {
     try {
       const user = await userService.createUser(req.body);

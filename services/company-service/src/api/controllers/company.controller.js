@@ -1,6 +1,13 @@
 const { companyService } = require('../../services');
 
 class CompanyController {
+  async getStats(req, res, next) {
+    try {
+      const stats = await companyService.getStats();
+      res.json({ success: true, data: stats, message: 'آمار شرکت‌ها با موفقیت دریافت شد' });
+    } catch (error) { next(error); }
+  }
+
   async create(req, res, next) {
     try {
       const company = await companyService.create(req.body);

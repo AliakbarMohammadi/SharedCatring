@@ -4,6 +4,43 @@ const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 
 class CompanyService {
+  async getStats() {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [
+      totalCompanies,
+      activeCompanies,
+      pendingCompanies,
+      approvedCompanies,
+      rejectedCompanies,
+      suspendedCompanies,
+      companiesThisMonth,
+      companiesToday
+    ] = await Promise.all([
+      Company.count(),
+      Company.count({ where: { status: 'active' } }),
+      Company.count({ where: { status: 'pending' } }),
+      Company.count({ where: { status: 'approved' } }),
+      Company.count({ where: { status: 'rejected' } }),
+      Company.count({ where: { status: 'suspended' } }),
+      Company.count({ where: { created_at: { [Op.gte]: startOfMonth } } }),
+      Company.count({ where: { created_at: { [Op.gte]: startOfToday } } })
+    ]);
+
+    return {
+      totalCompanies,
+      activeCompanies,
+      pendingCompanies,
+      approvedCompanies,
+      rejectedCompanies,
+      suspendedCompanies,
+      companiesThisMonth,
+      companiesToday
+    };
+  }
+
   async create(data) {
     if (data.registrationNumber) {
       const existing = await Company.findOne({ where: { registrationNumber: data.registrationNumber } });

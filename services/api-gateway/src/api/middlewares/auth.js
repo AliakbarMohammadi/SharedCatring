@@ -75,6 +75,39 @@ const authorize = (...roles) => {
   };
 };
 
+// Admin roles
+const ADMIN_ROLES = ['admin', 'super_admin', 'catering_admin'];
+
+// Require admin access
+const requireAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'ERR_1003',
+        message: 'برای دسترسی به این بخش باید وارد شوید',
+        details: []
+      }
+    });
+  }
+
+  if (!ADMIN_ROLES.includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'ERR_1004',
+        message: 'فقط مدیران سیستم به این بخش دسترسی دارند',
+        details: []
+      }
+    });
+  }
+
+  next();
+};
+
+// Require authentication (alias for authenticate)
+const requireAuth = authenticate;
+
 // Optional authentication - doesn't fail if no token
 const optionalAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -101,5 +134,7 @@ const optionalAuth = (req, res, next) => {
 module.exports = {
   authenticate,
   authorize,
+  requireAuth,
+  requireAdmin,
   optionalAuth
 };

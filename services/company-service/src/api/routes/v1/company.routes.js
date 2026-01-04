@@ -12,6 +12,9 @@ const { validateCreateEmp, validateUpdateEmp } = require('../../validators/emplo
 const { validateCreateShift, validateUpdateShift } = require('../../validators/shift.validator');
 const { validateCreateSubsidy, validateUpdateSubsidy } = require('../../validators/subsidy.validator');
 
+// Company stats (admin only)
+router.get('/stats', companyController.getStats);
+
 // Companies
 router.post('/', validateCreateCompany, companyController.create);
 router.get('/', companyController.findAll);

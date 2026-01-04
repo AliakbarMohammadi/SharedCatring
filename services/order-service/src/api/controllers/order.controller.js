@@ -1,6 +1,19 @@
 const { orderService } = require('../../services');
 
 class OrderController {
+  async getStats(req, res, next) {
+    try {
+      const stats = await orderService.getStats();
+      res.json({
+        success: true,
+        data: stats,
+        message: 'آمار سفارشات با موفقیت دریافت شد'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async create(req, res, next) {
     try {
       const userId = req.user.userId || req.user.id;

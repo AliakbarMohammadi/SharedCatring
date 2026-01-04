@@ -618,6 +618,44 @@ class OrderService {
       }))
     };
   }
+
+  /**
+   * Get order statistics
+   * دریافت آمار سفارشات
+   */
+  async getStats() {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [
+      totalOrders,
+      todayOrders,
+      pendingOrders,
+      confirmedOrders,
+      completedOrders,
+      cancelledOrders,
+      ordersThisMonth
+    ] = await Promise.all([
+      Order.count(),
+      Order.count({ where: { createdAt: { [Op.gte]: startOfToday } } }),
+      Order.count({ where: { status: 'pending' } }),
+      Order.count({ where: { status: 'confirmed' } }),
+      Order.count({ where: { status: 'completed' } }),
+      Order.count({ where: { status: 'cancelled' } }),
+      Order.count({ where: { createdAt: { [Op.gte]: startOfMonth } } })
+    ]);
+
+    return {
+      totalOrders,
+      todayOrders,
+      pendingOrders,
+      confirmedOrders,
+      completedOrders,
+      cancelledOrders,
+      ordersThisMonth
+    };
+  }
 }
 
 module.exports = new OrderService();
