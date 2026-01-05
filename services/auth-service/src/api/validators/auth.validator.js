@@ -69,7 +69,7 @@ const registerSchema = Joi.object({
     .messages(messages),
   
   role: Joi.string()
-    .valid('personal_user', 'company_admin', 'company_employee')
+    .valid('personal_user', 'company_admin', 'company_employee', 'super_admin')
     .default('personal_user')
     .label('نقش')
     .messages(messages)

@@ -57,6 +57,11 @@ const startServer = async () => {
   try {
     await connectDB();
     await eventPublisher.connect();
+
+    // Seed default data
+    const { seedDatabase } = require('./database/seeders/seed');
+    await seedDatabase();
+
     const app = createApp();
     const server = app.listen(config.port, () => {
       logger.info(`🚀 Company Service در حال اجرا روی پورت ${config.port}`);

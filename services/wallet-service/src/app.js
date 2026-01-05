@@ -175,6 +175,10 @@ const startServer = async () => {
     await eventPublisher.connect();
     await eventSubscriber.connect();
     
+    // Seed default data
+    const { seedDatabase } = require('./database/seeders/seed');
+    await seedDatabase();
+    
     setupEventHandlers();
 
     app.listen(config.port, () => {
