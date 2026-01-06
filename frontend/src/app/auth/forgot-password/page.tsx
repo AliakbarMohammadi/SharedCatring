@@ -1,75 +1,61 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useMutation } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
-import { Mail, ArrowRight, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { authService } from '@/services/auth.service';
-import { getErrorMessage } from '@/lib/api/client';
+import { useState } from "react";
+import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
+import apiClient from "@/lib/api-client";
+import { ArrowRight, CheckCircle } from "lucide-react";
 
-const forgotPasswordSchema = z.object({
-  email: z.string().email('ایمیل معتبر وارد کنید'),
+const forgotSchema = z.object({
+  email: z.string().email("ایمیل معتبر وارد کنید"),
 });
 
-type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+type ForgotForm = z.infer<typeof forgotSchema>;
 
 export default function ForgotPasswordPage() {
+  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [submittedEmail, setSubmittedEmail] = useState('');
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<ForgotPasswordFormData>({
-    resolver: zodResolver(forgotPasswordSchema),
+  } = useForm<ForgotForm>({
+    resolver: zodResolver(forgotSchema),
   });
 
-  const forgotPasswordMutation = useMutation({
-    mutationFn: authService.forgotPassword,
-    onSuccess: () => {
+  const onSubmit = async (data: ForgotForm) => {
+    setIsLoading(true);
+    try {
+      await apiClient.post("/auth/forgot-password", data);
       setIsSubmitted(true);
-    },
-    onError: (error) => {
-      toast.error(getErrorMessage(error));
-    },
-  });
-
-  const onSubmit = (data: ForgotPasswordFormData) => {
-    setSubmittedEmail(data.email);
-    forgotPasswordMutation.mutate(data);
+    } catch (error: any) {
+      toast(error.response?.data?.message || "خطا در ارسال ایمیل", "error");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSubmitted) {
     return (
       <div className="text-center">
-        <div className="w-16 h-16 bg-success-50 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle className="w-8 h-8 text-success-500" />
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+          <CheckCircle className="h-8 w-8 text-green-500" />
         </div>
-        <h2 className="text-2xl font-bold text-secondary-800 mb-2">ایمیل ارسال شد</h2>
-        <p className="text-secondary-500 mb-6">
-          در صورت وجود حساب کاربری با ایمیل{' '}
-          <span className="font-medium text-secondary-700">{submittedEmail}</span>
-          ، لینک بازیابی رمز عبور برای شما ارسال خواهد شد.
-        </p>
-        <p className="text-sm text-secondary-500 mb-8">
-          ایمیل را دریافت نکردید؟ پوشه اسپم را بررسی کنید یا{' '}
-          <button
-            onClick={() => setIsSubmitted(false)}
-            className="text-primary-600 hover:text-primary-700"
-          >
-            دوباره تلاش کنید
-          </button>
+        <h1 className="mb-2 text-2xl font-bold text-gray-900">ایمیل ارسال شد</h1>
+        <p className="mb-8 text-gray-600">
+          لینک بازیابی رمز عبور به ایمیل شما ارسال شد. لطفاً صندوق ورودی خود را
+          بررسی کنید.
         </p>
         <Link href="/auth/login">
-          <Button variant="outline" leftIcon={<ArrowRight className="w-4 h-4" />}>
-            بازگشت به صفحه ورود
+          <Button variant="outline">
+            <ArrowRight className="ml-2 h-4 w-4" />
+            بازگشت به ورود
           </Button>
         </Link>
       </div>
@@ -78,37 +64,31 @@ export default function ForgotPasswordPage() {
 
   return (
     <div>
-      <Link
-        href="/auth/login"
-        className="inline-flex items-center gap-1 text-sm text-secondary-500 hover:text-secondary-700 mb-6"
-      >
-        <ArrowRight className="w-4 h-4" />
-        بازگشت به ورود
-      </Link>
-
-      <h2 className="text-2xl font-bold text-secondary-800 mb-2">فراموشی رمز عبور</h2>
-      <p className="text-secondary-500 mb-8">
-        ایمیل خود را وارد کنید تا لینک بازیابی رمز عبور برای شما ارسال شود.
+      <h1 className="mb-2 text-2xl font-bold text-gray-900">فراموشی رمز عبور</h1>
+      <p className="mb-8 text-gray-600">
+        ایمیل خود را وارد کنید تا لینک بازیابی برایتان ارسال شود.
       </p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
           label="ایمیل"
           type="email"
-          placeholder="email@example.com"
-          leftIcon={<Mail className="w-5 h-5" />}
+          placeholder="example@email.com"
           error={errors.email?.message}
-          {...register('email')}
+          {...register("email")}
         />
 
-        <Button
-          type="submit"
-          fullWidth
-          size="lg"
-          isLoading={forgotPasswordMutation.isPending}
-        >
+        <Button type="submit" className="w-full" isLoading={isLoading}>
           ارسال لینک بازیابی
         </Button>
+
+        <Link
+          href="/auth/login"
+          className="flex items-center justify-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+        >
+          <ArrowRight className="h-4 w-4" />
+          بازگشت به ورود
+        </Link>
       </form>
     </div>
   );

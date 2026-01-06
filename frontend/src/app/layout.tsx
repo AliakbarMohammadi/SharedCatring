@@ -1,55 +1,21 @@
-'use client';
+import type { Metadata } from "next";
+import "./globals.css";
+import { Providers } from "@/components/providers";
 
-import { ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'react-hot-toast';
-import '@/styles/globals.css';
+export const metadata: Metadata = {
+  title: "کترینگ - سامانه سفارش غذا",
+  description: "سامانه جامع سفارش غذا برای سازمان‌ها و افراد",
+};
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="fa" dir="rtl">
-      <head>
-        <title>سیستم کترینگ سازمانی</title>
-        <meta name="description" content="سیستم سفارش غذای سازمانی" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-      </head>
-      <body className="min-h-screen bg-surface-100 antialiased">
-        <QueryClientProvider client={queryClient}>
-          {children}
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                fontFamily: 'var(--font-vazir)',
-                direction: 'rtl',
-              },
-              success: {
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#fff',
-                },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
-                },
-              },
-            }}
-          />
-        </QueryClientProvider>
+      <body className="min-h-screen bg-gray-50 antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
