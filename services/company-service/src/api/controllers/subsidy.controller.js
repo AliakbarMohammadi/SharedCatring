@@ -3,6 +3,9 @@ const { subsidyService } = require('../../services');
 class SubsidyController {
   async create(req, res, next) {
     try {
+      console.log('=== SUBSIDY CREATE ===');
+      console.log('req.body:', JSON.stringify(req.body));
+      console.log('req.params:', JSON.stringify(req.params));
       const rule = await subsidyService.create(req.params.id, req.body);
       res.status(201).json({ success: true, data: rule, message: 'قانون یارانه ایجاد شد' });
     } catch (error) { next(error); }

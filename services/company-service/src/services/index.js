@@ -1,7 +1,15 @@
+const companyService = require('./company.service');
+const employeeService = require('./employee.service');
+const shiftService = require('./shift.service');
+const subsidyService = require('./subsidy.service');
+const joinRequestService = require('./joinRequest.service');
+
+// Note: departmentService removed
+
 module.exports = {
-  companyService: require('./company.service'),
-  departmentService: require('./department.service'),
-  employeeService: require('./employee.service'),
-  shiftService: require('./shift.service'),
-  subsidyService: require('./subsidy.service')
+  companyService,
+  employeeService,
+  shiftService,
+  subsidyService,
+  joinRequestService
 };

@@ -188,6 +188,45 @@ class WalletController {
       next(error);
     }
   }
+
+  // Internal: Check company pool balance
+  async checkCompanyBalance(req, res, next) {
+    try {
+      const result = await walletService.checkCompanyPoolBalance(
+        req.params.companyId,
+        req.body.amount
+      );
+      
+      res.json({
+        success: true,
+        data: result,
+        message: 'موجودی حساب شرکت بررسی شد'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Internal: Deduct subsidy from company pool
+  async deductCompanySubsidy(req, res, next) {
+    try {
+      const result = await walletService.deductCompanySubsidy(
+        req.params.companyId,
+        req.body.employeeUserId,
+        req.body.amount,
+        req.body.orderId,
+        req.body.description
+      );
+      
+      res.json({
+        success: true,
+        data: result,
+        message: 'یارانه از حساب شرکت کسر شد'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new WalletController();

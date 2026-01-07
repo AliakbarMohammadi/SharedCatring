@@ -106,17 +106,24 @@ class CompanyService {
     const company = await Company.findByPk(id);
     if (!company) throw { statusCode: 404, code: 'ERR_COMPANY_NOT_FOUND', message: 'شرکت یافت نشد' };
 
-    const { Department, Employee, DeliveryShift } = require('../models');
-    const [departmentCount, employeeCount, shiftCount, activeEmployees] = await Promise.all([
-      Department.count({ where: { companyId: id, isActive: true } }),
-      Employee.count({ where: { companyId: id } }),
-      DeliveryShift.count({ where: { companyId: id, isActive: true } }),
-      Employee.count({ where: { companyId: id, status: 'active' } })
+    // Note: Department removed - employees are now directly linked to Company
+    const { Employee, DeliveryShift, CompanyJoinRequest } = require('../models');
+    
+    const [employeeCount, shiftCount, activeEmployees, pendingRequests] = await Promise.all([
+      Employee.count({ where: { companyId: id } }).catch(() => 0),
+      DeliveryShift.count({ where: { companyId: id, isActive: true } }).catch(() => 0),
+      Employee.count({ where: { companyId: id, status: 'active' } }).catch(() => 0),
+      CompanyJoinRequest.count({ where: { companyId: id, status: 'pending' } }).catch(() => 0)
     ]);
 
     return {
       company: this.format(company),
-      stats: { departments: departmentCount, totalEmployees: employeeCount, activeEmployees, shifts: shiftCount }
+      stats: { 
+        totalEmployees: employeeCount || 0, 
+        activeEmployees: activeEmployees || 0, 
+        shifts: shiftCount || 0,
+        pendingJoinRequests: pendingRequests || 0
+      }
     };
   }
 

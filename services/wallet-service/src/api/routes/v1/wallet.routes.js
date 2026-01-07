@@ -212,4 +212,75 @@ router.post('/company/:companyId/allocate', requireAuth, companyAdminAccess, val
  */
 router.get('/company/:companyId/employees', requireAuth, companyAdminAccess, validateQuery, walletController.getCompanyEmployees);
 
+// Internal API routes (service-to-service)
+/**
+ * @swagger
+ * /api/v1/wallets/internal/company/{companyId}/check-balance:
+ *   post:
+ *     summary: بررسی موجودی حساب شرکت (داخلی)
+ *     tags: [API داخلی]
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: نتیجه بررسی موجودی
+ */
+router.post('/internal/company/:companyId/check-balance', walletController.checkCompanyBalance);
+
+/**
+ * @swagger
+ * /api/v1/wallets/internal/company/{companyId}/deduct-subsidy:
+ *   post:
+ *     summary: کسر یارانه از حساب شرکت (داخلی)
+ *     tags: [API داخلی]
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - employeeUserId
+ *               - amount
+ *               - orderId
+ *             properties:
+ *               employeeUserId:
+ *                 type: string
+ *                 format: uuid
+ *               amount:
+ *                 type: number
+ *               orderId:
+ *                 type: string
+ *                 format: uuid
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: یارانه کسر شد
+ */
+router.post('/internal/company/:companyId/deduct-subsidy', walletController.deductCompanySubsidy);
+
 module.exports = router;

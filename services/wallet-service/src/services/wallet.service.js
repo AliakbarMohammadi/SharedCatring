@@ -383,6 +383,99 @@ class WalletService {
     };
   }
 
+  /**
+   * Check company pool balance
+   * بررسی موجودی حساب شرکت
+   */
+  async checkCompanyPoolBalance(companyId, amount) {
+    const pool = await CompanyWalletPool.findOne({ where: { companyId } });
+    
+    if (!pool) {
+      return {
+        sufficient: false,
+        currentBalance: 0,
+        requiredAmount: amount,
+        shortfall: amount,
+        error: 'حساب شرکت یافت نشد'
+      };
+    }
+
+    const availableBalance = parseFloat(pool.availableBalance);
+    return {
+      sufficient: availableBalance >= amount,
+      currentBalance: availableBalance,
+      requiredAmount: amount,
+      shortfall: Math.max(0, amount - availableBalance)
+    };
+  }
+
+  /**
+   * Deduct subsidy from company pool for order
+   * کسر یارانه از حساب شرکت برای سفارش
+   */
+  async deductCompanySubsidy(companyId, employeeUserId, amount, orderId, description = null) {
+    const transaction = await sequelize.transaction();
+    
+    try {
+      const pool = await CompanyWalletPool.findOne({ where: { companyId } });
+      
+      if (!pool) {
+        throw {
+          statusCode: 404,
+          code: 'ERR_COMPANY_POOL_NOT_FOUND',
+          message: 'حساب شرکت یافت نشد'
+        };
+      }
+
+      const availableBalance = parseFloat(pool.availableBalance);
+      if (availableBalance < amount) {
+        throw {
+          statusCode: 400,
+          code: 'ERR_INSUFFICIENT_COMPANY_BALANCE',
+          message: 'موجودی حساب شرکت برای پرداخت یارانه کافی نیست'
+        };
+      }
+
+      // Deduct from company pool
+      const newAvailable = availableBalance - amount;
+      await pool.update({
+        availableBalance: newAvailable,
+        totalBalance: parseFloat(pool.totalBalance) - amount
+      }, { transaction });
+
+      // Record transaction in company pool (we could create a separate table for this)
+      // For now, we'll use the employee's wallet transaction as reference
+
+      await transaction.commit();
+
+      await eventPublisher.publish('company.subsidy.deducted', {
+        companyId,
+        employeeUserId,
+        amount,
+        orderId,
+        newBalance: newAvailable
+      });
+
+      logger.info('یارانه از حساب شرکت کسر شد', { 
+        companyId, 
+        employeeUserId, 
+        amount, 
+        orderId,
+        newBalance: newAvailable 
+      });
+
+      return {
+        success: true,
+        deductedAmount: amount,
+        newBalance: newAvailable,
+        pool: this.formatCompanyPool(pool)
+      };
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
   formatWallet(wallet) {
     return {
       id: wallet.id,

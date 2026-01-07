@@ -2,11 +2,71 @@ const { SubsidyRule, Company, Employee } = require('../models');
 const logger = require('../utils/logger');
 
 class SubsidyService {
+  /**
+   * Map API request fields to database fields
+   * تبدیل فیلدهای درخواست به فیلدهای دیتابیس
+   */
+  mapRequestToModel(data) {
+    const mapped = {};
+    
+    // Map type → ruleType
+    if (data.type !== undefined) {
+      mapped.ruleType = data.type;
+    }
+    if (data.ruleType !== undefined) {
+      mapped.ruleType = data.ruleType;
+    }
+    
+    // Map value based on type
+    if (data.value !== undefined) {
+      if (data.type === 'percentage' || data.ruleType === 'percentage') {
+        mapped.percentage = data.value;
+      } else if (data.type === 'fixed' || data.ruleType === 'fixed') {
+        mapped.fixedAmount = data.value;
+      }
+    }
+    
+    // Direct mappings if provided
+    if (data.percentage !== undefined) mapped.percentage = data.percentage;
+    if (data.fixedAmount !== undefined) mapped.fixedAmount = data.fixedAmount;
+    
+    // Map mealTypes → applicableMeals
+    if (data.mealTypes !== undefined) {
+      mapped.applicableMeals = data.mealTypes;
+    }
+    if (data.applicableMeals !== undefined) {
+      mapped.applicableMeals = data.applicableMeals;
+    }
+    
+    // Map maxAmount → maxPerMeal
+    if (data.maxAmount !== undefined) {
+      mapped.maxPerMeal = data.maxAmount;
+    }
+    if (data.maxPerMeal !== undefined) {
+      mapped.maxPerMeal = data.maxPerMeal;
+    }
+    
+    // Pass through other fields
+    if (data.name !== undefined) mapped.name = data.name;
+    if (data.maxPerDay !== undefined) mapped.maxPerDay = data.maxPerDay;
+    if (data.maxPerMonth !== undefined) mapped.maxPerMonth = data.maxPerMonth;
+    if (data.startDate !== undefined) mapped.startDate = data.startDate;
+    if (data.endDate !== undefined) mapped.endDate = data.endDate;
+    if (data.isActive !== undefined) mapped.isActive = data.isActive;
+    if (data.priority !== undefined) mapped.priority = data.priority;
+    
+    return mapped;
+  }
+
   async create(companyId, data) {
     const company = await Company.findByPk(companyId);
     if (!company) throw { statusCode: 404, code: 'ERR_COMPANY_NOT_FOUND', message: 'شرکت یافت نشد' };
 
-    const rule = await SubsidyRule.create({ ...data, companyId });
+    logger.info('DEBUG Subsidy create - raw data received', JSON.stringify(data));
+    const mappedData = this.mapRequestToModel(data);
+    logger.info('DEBUG Subsidy create - after mapping', JSON.stringify(mappedData));
+    
+    const rule = await SubsidyRule.create({ ...mappedData, companyId });
     logger.info('قانون یارانه ایجاد شد', { companyId, ruleId: rule.id });
     return this.format(rule);
   }
@@ -20,7 +80,8 @@ class SubsidyService {
     const rule = await SubsidyRule.findOne({ where: { id: ruleId, companyId } });
     if (!rule) throw { statusCode: 404, code: 'ERR_RULE_NOT_FOUND', message: 'قانون یارانه یافت نشد' };
 
-    await rule.update(data);
+    const mappedData = this.mapRequestToModel(data);
+    await rule.update(mappedData);
     logger.info('قانون یارانه ویرایش شد', { ruleId });
     return this.format(rule);
   }

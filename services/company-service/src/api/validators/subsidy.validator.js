@@ -4,6 +4,12 @@ const msg = { 'string.empty': '{#label} نمی‌تواند خالی باشد', 
 
 const createSubsidySchema = Joi.object({
   name: Joi.string().max(100).optional().label('نام قانون').messages(msg),
+  // API fields (mapped in service)
+  type: Joi.string().valid('percentage', 'fixed', 'mixed').optional().label('نوع قانون').messages(msg),
+  value: Joi.number().min(0).optional().label('مقدار').messages(msg),
+  maxAmount: Joi.number().min(0).optional().label('سقف').messages(msg),
+  mealTypes: Joi.array().items(Joi.string()).optional().label('وعده‌ها').messages(msg),
+  // Database fields (direct)
   ruleType: Joi.string().valid('percentage', 'fixed', 'mixed').optional().label('نوع قانون').messages(msg),
   percentage: Joi.number().min(0).max(100).optional().label('درصد').messages(msg),
   fixedAmount: Joi.number().min(0).optional().label('مبلغ ثابت').messages(msg),

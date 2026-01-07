@@ -1,5 +1,8 @@
-const { Company, Department, DeliveryShift, SubsidyRule } = require('../../models');
+const { Company, DeliveryShift, SubsidyRule } = require('../../models');
 const logger = require('../../utils/logger');
+
+// Placeholder UUID for seed data - should be replaced with actual admin user
+const SEED_ADMIN_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 const seedDatabase = async () => {
   try {
@@ -14,27 +17,13 @@ const seedDatabase = async () => {
         phone: '02188776655',
         address: 'تهران، خیابان ولیعصر، پلاک ۱۲۳',
         city: 'تهران',
-        status: 'active'
+        status: 'active',
+        adminUserId: SEED_ADMIN_USER_ID
       }
     });
 
     if (created) {
       logger.info(`شرکت ایجاد شد: ${company.name}`);
-
-      // Create departments
-      const departments = [
-        { name: 'مدیریت', description: 'بخش مدیریت و اداری', isActive: true },
-        { name: 'فناوری اطلاعات', description: 'بخش IT', isActive: true },
-        { name: 'منابع انسانی', description: 'بخش منابع انسانی', isActive: true }
-      ];
-
-      for (const deptData of departments) {
-        await Department.findOrCreate({
-          where: { name: deptData.name, companyId: company.id },
-          defaults: { ...deptData, companyId: company.id }
-        });
-        logger.info(`بخش ایجاد شد: ${deptData.name}`);
-      }
 
       // Create delivery shifts
       const shifts = [
