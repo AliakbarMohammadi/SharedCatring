@@ -45,8 +45,17 @@ const updateStatusSchema = Joi.object({
 });
 
 const assignRoleSchema = Joi.object({
-  roleId: Joi.string().uuid().required().label('نقش').messages(messages)
-});
+  roleId: Joi.string().uuid().label('شناسه نقش').messages(messages),
+  role: Joi.string().valid('super_admin', 'company_admin', 'personal_user', 'kitchen_staff', 'employee', 'corporate_user').label('نام نقش').messages(messages)
+}).or('roleId', 'role'); // Either roleId or role name is required
+
+const changePasswordSchema = Joi.object({
+  currentPassword: Joi.string().required().label('رمز عبور فعلی').messages(messages),
+  newPassword: Joi.string().min(8).max(128).pattern(passwordPattern).required().label('رمز عبور جدید')
+    .messages({ ...messages, 'string.pattern.base': 'رمز عبور جدید باید حداقل ۸ کاراکتر و شامل حروف بزرگ، کوچک و عدد باشد' }),
+  // passwordHash: for service-to-service calls (auth-service)
+  passwordHash: Joi.string().max(256).label('رمز عبور هش شده')
+}).or('currentPassword', 'passwordHash'); // Either user change or service call
 
 const validate = (schema) => {
   return (req, res, next) => {
@@ -78,5 +87,6 @@ module.exports = {
   validateCreateUser: validate(createUserSchema),
   validateUpdateUser: validate(updateUserSchema),
   validateUpdateStatus: validate(updateStatusSchema),
-  validateAssignRole: validate(assignRoleSchema)
+  validateAssignRole: validate(assignRoleSchema),
+  validateChangePassword: validate(changePasswordSchema)
 };

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, Search, UserCheck, UserX, Eye } from 'lucide-react';
+import { Users, Search, UserCheck, UserX, Eye, Shield } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty, TableSkeleton } from '@/components/ui/Table';
-import { ConfirmModal } from '@/components/ui/Modal';
-import { adminService } from '@/services/admin.service';
+import { ConfirmModal, Modal } from '@/components/ui/Modal';
+import { adminService, SystemRole } from '@/services/admin.service';
 import { toJalali, userRoleLabels, formatPhone, toPersianDigits } from '@/lib/utils/format';
+import { useAuthStore } from '@/stores/auth.store';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -26,10 +27,17 @@ const roleOptions = [
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuthStore();
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [toggleUserId, setToggleUserId] = useState<string | null>(null);
+  
+  // Role assignment state
+  const [roleModalUser, setRoleModalUser] = useState<{ id: string; name: string; currentRole: string } | null>(null);
+  const [selectedRole, setSelectedRole] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'users', { search: searchQuery, role: roleFilter, page }],
@@ -40,6 +48,24 @@ export default function AdminUsersPage() {
       limit: 20,
     }),
   });
+
+  // Fetch system roles (only for super_admin)
+  const { data: systemRoles, isError: rolesError } = useQuery({
+    queryKey: ['admin', 'systemRoles'],
+    queryFn: () => adminService.getSystemRoles(),
+    enabled: isSuperAdmin,
+    retry: false, // Don't retry on 403
+  });
+
+  // Fallback roles if API fails (without IDs - will use role name for assignment)
+  const fallbackRoles: SystemRole[] = [
+    { id: '', value: 'super_admin', label: 'مدیر کل' },
+    { id: '', value: 'company_admin', label: 'مدیر شرکت' },
+    { id: '', value: 'personal_user', label: 'کاربر عادی' },
+    { id: '', value: 'kitchen_staff', label: 'کارمند آشپزخانه' },
+    { id: '', value: 'employee', label: 'کارمند' },
+    { id: '', value: 'corporate_user', label: 'کاربر سازمانی' },
+  ];
 
   const toggleStatusMutation = useMutation({
     mutationFn: adminService.toggleUserStatus,
@@ -53,8 +79,53 @@ export default function AdminUsersPage() {
     },
   });
 
+  const assignRoleMutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: string }) => 
+      adminService.assignUserRole(userId, role),
+    onSuccess: () => {
+      toast.success('نقش کاربر با موفقیت تغییر کرد');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      setRoleModalUser(null);
+      setSelectedRole('');
+    },
+    onError: (error: any) => {
+      const status = error.response?.status;
+      const message = error.response?.data?.error?.message;
+      
+      if (status === 403) {
+        toast.error('شما دسترسی به این عملیات را ندارید');
+      } else if (status === 401) {
+        toast.error('لطفاً دوباره وارد شوید');
+      } else {
+        toast.error(message || 'خطا در تغییر نقش');
+      }
+    },
+  });
+
+  const handleOpenRoleModal = (user: { id: string; firstName: string; lastName: string; role: string }) => {
+    setRoleModalUser({
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`,
+      currentRole: user.role,
+    });
+    setSelectedRole(user.role);
+  };
+
+  const handleAssignRole = () => {
+    if (roleModalUser && selectedRole && selectedRole !== roleModalUser.currentRole) {
+      assignRoleMutation.mutate({ userId: roleModalUser.id, role: selectedRole });
+    }
+  };
+
   const users = data?.data || [];
   const pagination = data?.pagination;
+
+  // Convert system roles to select options (use fallback if API fails)
+  const availableRoles = systemRoles || (rolesError ? fallbackRoles : []);
+  const roleSelectOptions = availableRoles.map((role: SystemRole) => ({
+    value: role.value,
+    label: role.label,
+  }));
 
   return (
     <DashboardLayout variant="admin">
@@ -119,7 +190,7 @@ export default function AdminUsersPage() {
                   <TableCell>{formatPhone(user.phone)}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" size="sm">
-                      {userRoleLabels[user.role]}
+                      {userRoleLabels[user.role] || user.role}
                     </Badge>
                   </TableCell>
                   <TableCell>{user.companyName || '-'}</TableCell>
@@ -132,15 +203,28 @@ export default function AdminUsersPage() {
                   <TableCell>
                     <div className="flex gap-2">
                       <Link href={`/admin/users/${user.id}`}>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" title="مشاهده">
                           <Eye className="w-4 h-4" />
                         </Button>
                       </Link>
+                      {/* Role assignment button - only for super_admin */}
+                      {isSuperAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenRoleModal(user)}
+                          className="text-primary-600"
+                          title="تغییر نقش"
+                        >
+                          <Shield className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setToggleUserId(user.id)}
                         className={user.isActive ? 'text-error-600' : 'text-success-600'}
+                        title={user.isActive ? 'غیرفعال کردن' : 'فعال کردن'}
                       >
                         {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                       </Button>
@@ -189,6 +273,45 @@ export default function AdminUsersPage() {
         cancelText="انصراف"
         loading={toggleStatusMutation.isPending}
       />
+
+      {/* Role Assignment Modal - only for super_admin */}
+      {isSuperAdmin && (
+        <Modal
+          isOpen={!!roleModalUser}
+          onClose={() => { setRoleModalUser(null); setSelectedRole(''); }}
+          title="تغییر نقش کاربر"
+        >
+          <div className="space-y-4">
+            <p className="text-secondary-600">
+              تغییر نقش کاربر: <span className="font-medium text-secondary-800">{roleModalUser?.name}</span>
+            </p>
+            
+            <Select
+              label="انتخاب نقش جدید"
+              value={selectedRole}
+              onValueChange={setSelectedRole}
+              placeholder="نقش را انتخاب کنید"
+              options={roleSelectOptions}
+            />
+
+            <div className="flex gap-3 justify-end pt-4">
+              <Button
+                variant="outline"
+                onClick={() => { setRoleModalUser(null); setSelectedRole(''); }}
+              >
+                انصراف
+              </Button>
+              <Button
+                onClick={handleAssignRole}
+                disabled={!selectedRole || selectedRole === roleModalUser?.currentRole}
+                isLoading={assignRoleMutation.isPending}
+              >
+                تغییر نقش
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </DashboardLayout>
   );
 }

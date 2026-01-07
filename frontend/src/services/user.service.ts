@@ -91,7 +91,12 @@ export const userService = {
    * تغییر رمز عبور
    */
   async changePassword(data: ChangePasswordRequest): Promise<void> {
-    await apiClient.post('/users/change-password', data);
+    // Get current user ID from auth store
+    const userId = (await import('@/stores/auth.store')).useAuthStore.getState().user?.id;
+    if (!userId) {
+      throw new Error('کاربر وارد نشده است');
+    }
+    await apiClient.patch(`/identity/users/${userId}/password`, data);
   },
 
   /**

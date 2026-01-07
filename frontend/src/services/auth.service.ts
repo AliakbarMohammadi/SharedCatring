@@ -18,7 +18,8 @@ export interface RegisterRequest {
   password: string;
   firstName?: string;
   lastName?: string;
-  role?: 'personal_user' | 'company_admin';
+  // Note: role is NOT accepted from user input for security
+  // All public registrations are assigned 'personal_user' role
 }
 
 export interface LoginResponse {
@@ -54,11 +55,17 @@ export const authService = {
   /**
    * Register new user
    * ثبت‌نام کاربر جدید
+   * Note: role is hardcoded to 'personal_user' for security
    */
   async register(data: RegisterRequest): Promise<{ userId: string; email: string }> {
+    // Security: Always set role to personal_user, ignore any role from input
+    const secureData = {
+      ...data,
+      role: 'personal_user' as const
+    };
     const response = await apiClient.post<ApiResponse<{ userId: string; email: string }>>(
       '/auth/register',
-      data
+      secureData
     );
     return response.data.data;
   },

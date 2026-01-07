@@ -268,6 +268,42 @@ class UserService {
     }));
   }
 
+  /**
+   * Assign role by ID or name
+   * تخصیص نقش با شناسه یا نام
+   */
+  async assignRoleByIdOrName(userId, { roleId, roleName }) {
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw { statusCode: 404, code: 'ERR_USER_NOT_FOUND', message: 'کاربر یافت نشد' };
+    }
+
+    let role;
+    if (roleId) {
+      role = await Role.findByPk(roleId);
+    } else if (roleName) {
+      role = await Role.findOne({ where: { name: roleName } });
+    }
+
+    if (!role) {
+      throw { statusCode: 404, code: 'ERR_ROLE_NOT_FOUND', message: 'نقش یافت نشد' };
+    }
+
+    await user.update({ roleId: role.id });
+
+    await eventPublisher.publish('identity.role.assigned', {
+      userId: user.id,
+      roleId: role.id,
+      roleName: role.name
+    });
+
+    logger.info('نقش به کاربر تخصیص داده شد', { userId: user.id, roleId: role.id, roleName: role.name });
+
+    return this.formatUser(await User.findByPk(userId, {
+      include: [{ model: Role, as: 'role' }]
+    }));
+  }
+
   async delete(id) {
     const user = await User.findByPk(id);
     if (!user) {
@@ -291,6 +327,29 @@ class UserService {
 
     await user.update({ passwordHash });
     logger.info('رمز عبور کاربر تغییر کرد', { userId: id });
+  }
+
+  /**
+   * Change password with current password verification
+   * تغییر رمز عبور با تأیید رمز فعلی
+   */
+  async changePassword(userId, currentPassword, newPassword) {
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw { statusCode: 404, code: 'ERR_USER_NOT_FOUND', message: 'کاربر یافت نشد' };
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValidPassword) {
+      throw { statusCode: 400, code: 'ERR_INVALID_PASSWORD', message: 'رمز عبور فعلی اشتباه است' };
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 12);
+    await user.update({ passwordHash: newPasswordHash });
+
+    logger.info('رمز عبور کاربر تغییر کرد', { userId });
   }
 
   formatUser(user) {

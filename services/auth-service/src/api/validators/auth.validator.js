@@ -28,6 +28,7 @@ const phonePattern = /^(\+98|0)?9\d{9}$/;
 /**
  * Register validation schema
  * اسکیمای اعتبارسنجی ثبت‌نام
+ * Security: role field is NOT accepted - always assigned as 'personal_user' in controller
  */
 const registerSchema = Joi.object({
   email: Joi.string()
@@ -66,13 +67,11 @@ const registerSchema = Joi.object({
     .max(100)
     .optional()
     .label('نام خانوادگی')
-    .messages(messages),
-  
-  role: Joi.string()
-    .valid('personal_user', 'company_admin', 'company_employee', 'super_admin')
-    .default('personal_user')
-    .label('نقش')
     .messages(messages)
+  
+  // Security: role field intentionally removed
+  // Public registration always assigns 'personal_user' role
+  // Admin roles must be created through Super Admin Panel
 });
 
 /**

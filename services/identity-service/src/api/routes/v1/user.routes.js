@@ -6,7 +6,8 @@ const {
   validateCreateUser,
   validateUpdateUser,
   validateUpdateStatus,
-  validateAssignRole
+  validateAssignRole,
+  validateChangePassword
 } = require('../../validators/user.validator');
 
 // Internal routes for service-to-service communication (no auth required)
@@ -24,6 +25,6 @@ router.post('/:id/assign-role', requireAuth, restrictTo('super_admin'), validate
 router.get('/:id', requireAuth, userController.findById);
 router.put('/:id', requireAuth, validateUpdateUser, userController.update);
 router.patch('/:id', requireAuth, validateUpdateUser, userController.update);
-router.patch('/:id/password', requireAuth, userController.updatePassword);
+router.patch('/:id/password', requireAuth, validateChangePassword, userController.updatePassword);
 
 module.exports = router;

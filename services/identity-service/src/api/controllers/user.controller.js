@@ -83,7 +83,8 @@ class UserController {
 
   async assignRole(req, res, next) {
     try {
-      const user = await userService.assignRole(req.params.id, req.body.roleId);
+      const { roleId, role } = req.body;
+      const user = await userService.assignRoleByIdOrName(req.params.id, { roleId, roleName: role });
 
       res.json({
         success: true,
@@ -133,8 +134,31 @@ class UserController {
 
   async updatePassword(req, res, next) {
     try {
-      const { passwordHash } = req.body;
-      await userService.updatePassword(req.params.id, passwordHash);
+      const { currentPassword, newPassword, passwordHash } = req.body;
+      const userId = req.params.id;
+      const requestingUserId = req.user?.userId;
+
+      // Check if user is updating their own password or is admin
+      const isOwnPassword = userId === requestingUserId;
+      const isAdmin = req.user?.role === 'super_admin';
+
+      if (!isOwnPassword && !isAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'ERR_FORBIDDEN',
+            message: 'شما اجازه تغییر رمز عبور این کاربر را ندارید'
+          }
+        });
+      }
+
+      // If passwordHash is provided (from auth-service), use it directly
+      if (passwordHash) {
+        await userService.updatePassword(userId, passwordHash);
+      } else {
+        // User is changing their own password - verify current password
+        await userService.changePassword(userId, currentPassword, newPassword);
+      }
 
       res.json({
         success: true,

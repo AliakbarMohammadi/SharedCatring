@@ -43,6 +43,12 @@ export interface AdminCompany {
   createdAt: string;
 }
 
+export interface SystemRole {
+  id: string;
+  value: string;
+  label: string;
+}
+
 // API Functions
 export const adminService = {
   /**
@@ -270,6 +276,27 @@ export const adminService = {
    */
   async publishDailyMenu(data: { date: string; items: { foodId: string; maxQuantity?: number }[] }): Promise<any> {
     const response = await apiClient.post<ApiResponse<any>>('/admin/menu/daily', data);
+    return response.data.data;
+  },
+
+  /**
+   * Get system roles (super_admin only)
+   * دریافت لیست نقش‌های سیستم (فقط مدیر کل)
+   */
+  async getSystemRoles(): Promise<SystemRole[]> {
+    const response = await apiClient.get<ApiResponse<SystemRole[]>>('/identity/roles/list');
+    return response.data.data;
+  },
+
+  /**
+   * Assign role to user (super_admin only)
+   * تخصیص نقش به کاربر (فقط مدیر کل)
+   */
+  async assignUserRole(userId: string, role: string): Promise<AdminUser> {
+    const response = await apiClient.post<ApiResponse<AdminUser>>(
+      `/identity/users/${userId}/assign-role`,
+      { role }
+    );
     return response.data.data;
   },
 };

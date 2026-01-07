@@ -1,7 +1,50 @@
 const { roleService } = require('../../services');
 const logger = require('../../utils/logger');
 
+/**
+ * Persian labels for system roles
+ * برچسب‌های فارسی برای نقش‌های سیستم
+ */
+const ROLE_LABELS = {
+  super_admin: 'مدیر کل',
+  company_admin: 'مدیر شرکت',
+  personal_user: 'کاربر عادی',
+  kitchen_staff: 'کارمند آشپزخانه',
+  employee: 'کارمند',
+  corporate_user: 'کاربر سازمانی',
+  catering_admin: 'مدیر کترینگ',
+  admin: 'مدیر'
+};
+
 class RoleController {
+  /**
+   * Get system roles list with IDs (super_admin only)
+   * GET /api/v1/identity/roles/list
+   */
+  async getSystemRoles(req, res, next) {
+    try {
+      logger.info('لیست نقش‌های سیستم درخواست شد', { userId: req.user?.userId });
+
+      // Fetch roles from database
+      const roles = await roleService.findAll();
+      
+      // Format with Persian labels
+      const formattedRoles = roles.map(role => ({
+        id: role.id,
+        value: role.name,
+        label: ROLE_LABELS[role.name] || role.description || role.name
+      }));
+
+      res.json({
+        success: true,
+        data: formattedRoles,
+        message: 'لیست نقش‌های سیستم'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async create(req, res, next) {
     try {
       const role = await roleService.create(req.body);

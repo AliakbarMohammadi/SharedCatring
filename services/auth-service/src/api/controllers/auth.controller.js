@@ -12,10 +12,15 @@ class AuthController {
   /**
    * Register new user
    * POST /api/v1/auth/register
+   * Security: Public registration ALWAYS assigns 'personal_user' role
+   * Admin/Company roles must be created through Super Admin Panel
    */
   async register(req, res, next) {
     try {
-      const { email, phone, password, firstName, lastName, role = 'personal_user' } = req.body;
+      const { email, phone, password, firstName, lastName } = req.body;
+      // Security: Ignore any role from request body - always use personal_user
+      const role = 'personal_user';
+      
       const requestInfo = {
         ip: req.ip,
         userAgent: req.get('user-agent')
