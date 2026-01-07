@@ -4,6 +4,16 @@ const logger = require('../utils/logger');
 
 class CategoryService {
   async create(data) {
+    // Check for duplicate name
+    const existingCategory = await Category.findOne({ name: data.name });
+    if (existingCategory) {
+      throw { 
+        statusCode: 409, 
+        code: 'ERR_CATEGORY_EXISTS', 
+        message: 'دسته‌بندی با این نام قبلاً وجود دارد' 
+      };
+    }
+
     // Check parent exists if provided
     if (data.parentId) {
       const parent = await Category.findById(data.parentId);
@@ -64,6 +74,18 @@ class CategoryService {
     const category = await Category.findById(id);
     if (!category) {
       throw { statusCode: 404, code: 'ERR_CATEGORY_NOT_FOUND', message: 'دسته‌بندی یافت نشد' };
+    }
+
+    // Check for duplicate name if name is being changed
+    if (data.name && data.name !== category.name) {
+      const existingCategory = await Category.findOne({ name: data.name, _id: { $ne: id } });
+      if (existingCategory) {
+        throw { 
+          statusCode: 409, 
+          code: 'ERR_CATEGORY_EXISTS', 
+          message: 'دسته‌بندی با این نام قبلاً وجود دارد' 
+        };
+      }
     }
 
     // Check parent if changing
