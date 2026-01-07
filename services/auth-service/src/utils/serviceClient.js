@@ -99,7 +99,8 @@ const identityService = {
    */
   async createUser(userData) {
     try {
-      const response = await serviceClient.post(`${identityServiceUrl}/api/v1/identity/users`, userData);
+      // Use internal endpoint for service-to-service communication (no auth required)
+      const response = await serviceClient.post(`${identityServiceUrl}/api/v1/identity/users/internal`, userData);
       if (response.data.success) {
         logger.info('کاربر در Identity Service ایجاد شد', { userId: response.data.data.id });
         return response.data.data;

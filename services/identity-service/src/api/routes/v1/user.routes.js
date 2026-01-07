@@ -9,8 +9,9 @@ const {
   validateAssignRole
 } = require('../../validators/user.validator');
 
-// Internal route for service-to-service communication (no auth required)
+// Internal routes for service-to-service communication (no auth required)
 router.get('/by-email/:email', userController.findByEmailInternal);
+router.post('/internal', validateCreateUser, userController.create); // For auth-service registration
 
 // Protected routes - super_admin only
 router.get('/', requireAuth, restrictTo('super_admin'), userController.findAll);
