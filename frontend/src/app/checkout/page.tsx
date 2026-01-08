@@ -51,6 +51,13 @@ export default function CheckoutPage() {
     setMounted(true);
   }, []);
 
+  // Redirect to cart if empty
+  useEffect(() => {
+    if (mounted && items.length === 0) {
+      router.push('/cart');
+    }
+  }, [mounted, items.length, router]);
+
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema),
   });
@@ -110,9 +117,15 @@ export default function CheckoutPage() {
     );
   }
 
+  // Prevent rendering if cart is empty (redirect will happen in useEffect)
   if (items.length === 0) {
-    router.push('/cart');
-    return null;
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
   }
 
   return (

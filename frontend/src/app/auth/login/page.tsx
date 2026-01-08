@@ -18,6 +18,7 @@ import { getErrorMessage } from '@/lib/api/client';
 const loginSchema = z.object({
   email: z.string().email('ایمیل معتبر وارد کنید'),
   password: z.string().min(6, 'رمز عبور باید حداقل ۶ کاراکتر باشد'),
+  rememberMe: z.boolean().optional(),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -38,10 +39,13 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  const rememberMe = watch('rememberMe');
 
   const loginMutation = useMutation({
     mutationFn: authService.login,
@@ -120,6 +124,7 @@ export default function LoginPage() {
             <input
               type="checkbox"
               className="w-4 h-4 rounded border-secondary-300 text-primary-500 focus:ring-primary-500"
+              {...register('rememberMe')}
             />
             <span className="text-sm text-secondary-600">مرا به خاطر بسپار</span>
           </label>

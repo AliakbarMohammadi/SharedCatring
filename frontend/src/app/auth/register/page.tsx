@@ -8,16 +8,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff, Mail, Lock, User, Phone } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, Building2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { authService } from '@/services/auth.service';
 import { getErrorMessage } from '@/lib/api/client';
 
 const registerSchema = z.object({
   firstName: z.string().min(2, 'نام باید حداقل ۲ کاراکتر باشد'),
   lastName: z.string().min(2, 'نام خانوادگی باید حداقل ۲ کاراکتر باشد'),
-  email: z.string().email('ایمیل معتبر وارد کنید'),
+  email: z.string().min(1, 'ایمیل الزامی است').email('ایمیل معتبر وارد کنید'),
   phone: z.string().regex(/^09\d{9}$/, 'شماره موبایل معتبر وارد کنید'),
   password: z
     .string()
@@ -29,6 +30,7 @@ const registerSchema = z.object({
   acceptTerms: z.boolean().refine((val) => val === true, {
     message: 'پذیرش قوانین الزامی است',
   }),
+  role: z.enum(['personal_user', 'company_admin']),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'رمز عبور و تکرار آن یکسان نیستند',
   path: ['confirmPassword'],
@@ -40,13 +42,18 @@ export default function RegisterPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'personal_user' | 'company_admin'>('personal_user');
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      role: 'personal_user',
+    },
   });
 
   const registerMutation = useMutation({
@@ -65,17 +72,39 @@ export default function RegisterPage() {
     registerMutation.mutate(registerData);
   };
 
+  const handleRoleChange = (role: string) => {
+    const roleValue = role as 'personal_user' | 'company_admin';
+    setSelectedRole(roleValue);
+    setValue('role', roleValue);
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-secondary-800 mb-2">ایجاد حساب کاربری</h2>
-      <p className="text-secondary-500 mb-8">
+      <p className="text-secondary-500 mb-6">
         قبلاً ثبت‌نام کرده‌اید؟{' '}
         <Link href="/auth/login" className="text-primary-600 hover:text-primary-700 font-medium">
           وارد شوید
         </Link>
       </p>
 
+      {/* Role Selection Tabs */}
+      <Tabs defaultValue="personal_user" value={selectedRole} onValueChange={handleRoleChange} className="mb-6">
+        <TabsList className="w-full grid grid-cols-2">
+          <TabsTrigger value="personal_user" className="flex items-center gap-2">
+            <User className="w-4 h-4" />
+            کاربر شخصی
+          </TabsTrigger>
+          <TabsTrigger value="company_admin" className="flex items-center gap-2">
+            <Building2 className="w-4 h-4" />
+            مدیر شرکت
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <input type="hidden" {...register('role')} />
+        
         <div className="grid grid-cols-2 gap-4">
           <Input
             label="نام"

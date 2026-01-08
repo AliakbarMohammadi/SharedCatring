@@ -18,6 +18,7 @@ export const loginSchema = z.object({
     .string()
     .min(1, 'رمز عبور الزامی است')
     .min(8, 'رمز عبور باید حداقل ۸ کاراکتر باشد'),
+  rememberMe: z.boolean().optional(),
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
@@ -28,6 +29,14 @@ export type LoginFormData = z.infer<typeof loginSchema>;
  */
 export const registerSchema = z
   .object({
+    firstName: z
+      .string()
+      .min(1, 'نام الزامی است')
+      .min(2, 'نام باید حداقل ۲ کاراکتر باشد'),
+    lastName: z
+      .string()
+      .min(1, 'نام خانوادگی الزامی است')
+      .min(2, 'نام خانوادگی باید حداقل ۲ کاراکتر باشد'),
     email: z
       .string()
       .min(1, 'ایمیل الزامی است')
@@ -44,7 +53,7 @@ export const registerSchema = z
       .string()
       .min(1, 'تکرار رمز عبور الزامی است'),
     role: z.enum(['personal_user', 'company_admin'], {
-      required_error: 'نوع کاربری را انتخاب کنید',
+      message: 'نوع کاربری را انتخاب کنید',
     }),
   })
   .refine((data) => data.password === data.confirmPassword, {

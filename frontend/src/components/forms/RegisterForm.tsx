@@ -44,6 +44,8 @@ export function RegisterForm() {
     setIsLoading(true);
     try {
       await authService.register({
+        firstName: '',
+        lastName: '',
         email: data.email,
         phone: data.phone,
         password: data.password,

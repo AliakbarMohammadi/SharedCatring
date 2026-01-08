@@ -13,13 +13,12 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   password: string;
-  firstName?: string;
-  lastName?: string;
-  // Note: role is NOT accepted from user input for security
-  // All public registrations are assigned 'personal_user' role
+  role: 'personal_user' | 'company_admin';
 }
 
 export interface LoginResponse {
@@ -55,17 +54,11 @@ export const authService = {
   /**
    * Register new user
    * ثبت‌نام کاربر جدید
-   * Note: role is hardcoded to 'personal_user' for security
    */
   async register(data: RegisterRequest): Promise<{ userId: string; email: string }> {
-    // Security: Always set role to personal_user, ignore any role from input
-    const secureData = {
-      ...data,
-      role: 'personal_user' as const
-    };
     const response = await apiClient.post<ApiResponse<{ userId: string; email: string }>>(
       '/auth/register',
-      secureData
+      data
     );
     return response.data.data;
   },
